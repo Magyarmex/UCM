@@ -1,0 +1,10 @@
+# Local QA runs, capture output, and source snapshots are kept on this machine.
+tools/qa-*/
+tools/source-snapshots/
+tools/closeout-*
+tools/overnight-progress.md
+tools/vfr-capture-notes.md
+tools/arm-clearance-next-pass.md
+tools/cause-mapping-review.md
+tools/publication-report.md
+_site/
