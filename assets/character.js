@@ -8,7 +8,7 @@ const PALETTE={paper:'#e9e1d2',floor:'#d9ceb9',ink:'#283b43',coral:'#df765d',gol
 const TIMELINE={anticipationEnd:3500,reactionEnd:8000,fallStart:8000,fallEnd:11500,impactEnd:11500,deadEnd:15000,ghostEnd:18500,retry1End:20250,retry2End:22000,finish:25500,nonfatalFinish:14000};
 
 export function createCharacterStage(container,{onEvent=()=>{},onReady=()=>{},onError=()=>{}}={}){
-  let renderer,scene,camera,resizeObs,raf=0,disposed=false,lastNow=null,clock=0;
+  let renderer,scene,camera,resizeObs,raf=0,disposed=false,lastNow=null,clock=0,testSeekLocked=false;
   const state={profile:'hombre',phase:'idle',dead:false,playing:false,tasting:false,deadEventSent:false,progress:0,paused:false,neutral:false,intensity:0,massKg:70,activeNutrient:null,comparison:null,comparisonAvatar:null,levels:{energia:100,proteina:100,agua:100,fibra:100,hierro:100,vitC:100,calcio:100,sodio:100},cause:'mixed',fatal:false,critical:false,dominantNutrient:null,effects:[],started:0};let lastAppliedMorphMass=70;
   const mats={}; const geometries=[];const materials=[];const events=[];
   const mat=(color,roughness=.78,extra={})=>{const m=new THREE.MeshStandardMaterial({color,roughness,...extra});materials.push(m);return m};
@@ -54,14 +54,14 @@ export function createCharacterStage(container,{onEvent=()=>{},onReady=()=>{},on
       const irisMesh=sph(head,'iris'+id,[s*.13,.12,.321],[.038,.049,.018],iris,20);rig['iris'+id]=irisMesh;
       rig['pupil'+id]=sph(head,'pupil'+id,[s*.13,.118,.336],[.019,.03,.01],pupil,16);
       rig['glint'+id]=sph(head,'glint'+id,[s*.139,.139,.345],[.009,.011,.006],white,12);
-      const brow=pivot(head,'browPivot'+id,[s*.14,.25,.30]);curveTube(brow,'brow'+id,[[s*-.065,-.005,-.01],[0,.02,0],[s*.07,-.005,-.01]],.025,hairLight);rig['brow'+id]=brow;
+      const brow=pivot(head,'browPivot'+id,[s*.14,.25,.278]);curveTube(brow,'brow'+id,[[s*-.065,-.005,-.006],[0,.02,.006],[s*.07,-.005,-.006]],.022,hairLight);rig['brow'+id]=brow;
       const lid=sph(head,'lid'+id,[s*.137,.16,.296],[.078,.018,.05],skin,20);rig['lid'+id]=lid;
       const deadCross=pivot(head,'deadCross'+id,[s*.137,.12,.343]);deadCross.visible=false;capsule(deadCross,'xbar1',[ -.035,-.035,0],[.035,.035,0],.012,mouthMat,8);capsule(deadCross,'xbar2',[ -.035,.035,.002],[.035,-.035,.002],.012,mouthMat,8);rig['deadCross'+id]=deadCross;
-      rig.cheeks.push(sph(head,'cheek'+id,[s*.22,-.055,.268],[.075,.04,.024],blush,18));
+      rig.cheeks.push(sph(head,'cheek'+id,[s*.22,-.055,.248],[.075,.04,.024],blush,18));
     }
     sph(head,'nose',[0,.01,.32],[.06,.086,.07],skinShade,20);
-    const smile=pivot(head,'smilePivot',[0,-.145,.30]);curveTube(smile,'smile',[[-.09,.025,-.01],[-.045,0,.015],[0,-.005,.02],[.045,0,.015],[.09,.025,-.01]],.013,mouthMat);rig.smile=smile;
-    const mouthPivot=pivot(head,'mouthPivot',[0,-.145,.30]);const mouth=sph(mouthPivot,'mouth',[0,0,0],[.03,.018,.018],mouthMat,20);rig.mouth=mouth;rig.mouthPivot=mouthPivot;rig.tongue=sph(head,'tongue',[0,-.205,.324],[.045,.025,.018],mat('#d96e73'),18);rig.tongue.visible=false;
+    const smile=pivot(head,'smilePivot',[0,-.145,.276]);curveTube(smile,'smile',[[-.09,.025,-.008],[-.045,0,.006],[0,-.005,.009],[.045,0,.006],[.09,.025,-.008]],.011,mouthMat);rig.smile=smile;
+    const mouthPivot=pivot(head,'mouthPivot',[0,-.145,.276]);const mouth=sph(mouthPivot,'mouth',[0,0,0],[.03,.018,.018],mouthMat,20);rig.mouth=mouth;rig.mouthPivot=mouthPivot;rig.tongue=sph(head,'tongue',[0,-.205,.261],[.045,.025,.018],mat('#d96e73'),18);rig.tongue.visible=false;
     // Neck scarf/collar anchors head to torso visually.
     if(female)curveTube(body,'neckline',[[-.14,1.98,.13],[0,1.9,.2],[.14,1.98,.13]],.035,trim);
     // Arms: overlapping shoulder cloth is sculpted into sleeves; forearms and palms join at wrists.
@@ -73,10 +73,12 @@ export function createCharacterStage(container,{onEvent=()=>{},onReady=()=>{},on
       const elbow=pivot(sh,'elbow'+id,[side*.025,-.43,.015]);
       const fore=capsule(elbow,'forearm'+id,[0,0,0],[side*.018,-.39,.035],.085,skin,18);
       sph(elbow,'wrist'+id,[side*.018,-.365,.035],[.083,.09,.085],skin,20);
-      const palm=sph(elbow,'palm'+id,[side*.018,-.465,.045],[.115,.12,.065],skin,22);
-      for(let f=0;f<4;f++)capsule(elbow,'finger'+id+f,[side*(.018+(f-1.5)*.043),-.51,.09],[side*(.018+(f-1.5)*.05),-.59,.095],.022,skin,10);
-      capsule(elbow,'thumb'+id,[side*.105,-.445,.075],[side*.16,-.49,.09],.03,skin,12);
-      rig.arms.push({side,id,sh,elbow,upper,fore,cuff,palm});
+      sph(sh,'deltoid'+id,[0,-.02,0],[.125,.14,.125],shirt,22);
+      const hand=pivot(elbow,'handGrip'+id,[side*.018,-.365,.035]);
+      const palm=sph(hand,'palm'+id,[0,-.10,.01],[.115,.12,.065],skin,22);
+      for(let f=0;f<4;f++){const x=side*((f-1.5)*.043);capsule(hand,'finger'+id+f,[x,-.125,.07],[x-side*.012,-.18,.095],.024,skin,10);}
+      capsule(hand,'thumb'+id,[side*.087,-.08,.055],[side*.057,-.125,.11],.03,skin,12);
+      rig.arms.push({side,id,sh,elbow,upper,fore,cuff,palm,hand});
     }
     // Legs form one readable trouser silhouette through the hips, knee darts and joined feet.
     rig.legs=[];
@@ -94,12 +96,12 @@ export function createCharacterStage(container,{onEvent=()=>{},onReady=()=>{},on
       rig.legs.push({side,id,hip,knee,foot,thigh,shin});
     }
     // Prop is already in hand at rest and remains visibly trapped after the fall.
-    const rightArm=rig.arms.find(a=>a.id==='R');const spoon=pivot(rightArm.elbow,'spoon',[.018,-.45,.11]);spoon.scale.setScalar(1.45);rig.spoon=spoon;
+    const rightArm=rig.arms.find(a=>a.id==='R');const spoon=pivot(rightArm.hand,'spoon',[0,-.085,.075]);spoon.scale.setScalar(1.45);rig.spoon=spoon;
     const bowl=sph(spoon,'spoonBowl',[0,.28,.01],[.075,.085,.019],metal,20);bowl.rotation.z=-.25;
     capsule(spoon,'spoonHandle',[0,-.08,.01],[0,.23,.01],.022,metal,12);
     // Contact shadow is a soft translucent sprite-like ellipse on the floor.
     const shadow=new THREE.Mesh(new THREE.CircleGeometry(1,48),mat('#6d675d',1,{transparent:true,opacity:.16,depthWrite:false}));shadow.rotation.x=-Math.PI/2;shadow.position.set(0,.012,.03);shadow.scale.set(.85,.38,1);shadow.receiveShadow=true;scene.add(shadow);rig.shadow=shadow;
-    rig.base={actorPos:pivotActor.position.clone(),bodyPos:body.position.clone(),torsoScale:torso.scale.clone(),shirtFrontScale:rig.shirtFront.scale.clone(),waistScale:rig.waist.scale.clone(),trousersScale:rig.trousers.scale.clone(),headPos:head.position.clone(),headRot:head.rotation.clone(),headShapeScale:headShape.scale.clone(),cheekScales:rig.cheeks.map(c=>c.scale.clone()),spoonPos:spoon.position.clone(),shadowScale:shadow.scale.clone()};
+    rig.base={actorPos:pivotActor.position.clone(),bodyPos:body.position.clone(),torsoScale:torso.scale.clone(),shirtFrontScale:rig.shirtFront.scale.clone(),waistScale:rig.waist.scale.clone(),trousersScale:rig.trousers.scale.clone(),headPos:head.position.clone(),headRot:head.rotation.clone(),headShapeScale:headShape.scale.clone(),cheekScales:rig.cheeks.map(c=>c.scale.clone()),spoonPos:spoon.position.clone(),spoonElbowOffset:rightArm.hand.position.clone().add(spoon.position),shadowScale:shadow.scale.clone()};
     return rig;
   }
   let rigs={};let active;
@@ -169,14 +171,14 @@ export function createCharacterStage(container,{onEvent=()=>{},onReady=()=>{},on
     else{if(state.comparisonAvatar)state.comparisonAvatar.visible=false;active.actor.visible=true;}
     return getState();
   }
-  function expression(rig,stress,cause,t){
+  function expression(rig,stress,cause,t,shapeStress=stress){
     const head=rig.head;const closed=smooth(.36,.9,stress);const worry=smooth(.12,.7,stress);const alive=!state.dead;
-    const blink=Math.max(0,1-Math.abs((t%4)-2.15)/.13);
+    const blink=alive?Math.max(0,1-Math.abs((t%4)-2.15)/.13):0;
     for(const id of ['L','R']){rig['deadCross'+id].visible=state.dead&&['dead','ghost'].includes(state.phase);rig['lid'+id].scale.y=.005+closed*.105+blink*.085;const side=id==='L'?-1:1;let gx=.02,gy=-.012;if(cause==='waterLow')gy=.045;if(cause==='gut'){gx=-side*.022;gy=-.026;}if(cause==='waterHigh')gx=side*.022;if(cause==='energy'||cause==='iron')gy=-.02;rig['iris'+id].position.set(side*.13+gx,.12+gy,.321);rig['iris'+id].visible=!rig['deadCross'+id].visible;rig['pupil'+id].visible=!state.dead;rig['glint'+id].visible=!state.dead;rig['brow'+id].rotation.z=side*(.075+worry*.28)+(cause==='gut'?side*.12:0);rig['brow'+id].scale.x=1+worry*.2;}
     const uncomfortable=['waterLow','waterHigh','salt','gut','energy','iron','sodiumLow'].includes(cause);rig.smile.visible=stress<.26&&alive&&!uncomfortable;rig.mouth.visible=stress>=.26||!alive||uncomfortable;rig.mouth.scale.set(.03+stress*.052,.018+stress*.07,.018);
-    head.rotation.z=Math.sin(t*.45)*.018+(stress>.5?-.16:0);head.rotation.x=stress>.57?.2:0;
-    const morph=state.massKg<70?(state.massKg-70)/30:(state.massKg-70)/90;const waterPuff=state.neutral?0:clamp(((state.levels.agua??100)-140)/210);rig.torso.scale.x=(rig.profile==='mujer'?.40:.47)*(1+morph*(morph<0?.25:.5))*(1-stress*.12)*(1+waterPuff*.055);rig.torso.scale.y=.55*(1+morph*.12)*(1-stress*.1)*(1+waterPuff*.025);rig.torso.scale.z=.285*(1+morph*(morph<0?.3:.75))*(1+waterPuff*.24);rig.shirtFront.scale.set(rig.base.shirtFrontScale.x*(1+morph*(morph<0?.25:.5))*(1+waterPuff*.055),rig.base.shirtFrontScale.y*(1+morph*.12)*(1+waterPuff*.025),rig.base.shirtFrontScale.z*(1+morph*(morph<0?.3:.75))*(1+waterPuff*.24));rig.shirtFront.position.z=.285*(1+morph*(morph<0?.3:.75))-.02+waterPuff*.028;rig.cheeks.forEach((cheek,i)=>{const b=rig.base.cheekScales[i];cheek.scale.set(b.x*(1+waterPuff*.12),b.y*(1+waterPuff*.1),b.z*(1+waterPuff*.1));});rig.torso.rotation.z=stress>.35?.085:0;
-    rig.tongue.scale.set(.045,.025,.018);rig.tongue.visible=alive&&!state.neutral&&cause==='waterLow'&&stress>.15;rig.tongue.position.y=-.205+Math.sin(t*5.2)*.006*(rig.tongue.visible?1:0);if(rig.tongue.visible){rig.mouth.visible=true;rig.mouth.scale.set(.055+stress*.025,.045+stress*.035,.022);head.rotation.y=Math.sin(t*3.2)*(.1+stress*.14);for(const id of ['L','R']){const side=id==='L'?-1:1;rig['iris'+id].position.x=side*.13+Math.sin(t*2.8+(id==='L'?0:Math.PI))*.025;rig['iris'+id].position.y=.12-.025*Math.abs(Math.sin(t*2.8));}}
+    head.rotation.z=(alive?Math.sin(t*.45)*.018:0)+(stress>.5?-.16:0);head.rotation.x=stress>.57?.2:0;
+    const morph=state.massKg<70?(state.massKg-70)/30:(state.massKg-70)/90;const waterPuff=state.neutral?0:clamp(((state.levels.agua??100)-140)/210)*clamp(shapeStress/.2);rig.torso.scale.x=(rig.profile==='mujer'?.40:.47)*(1+morph*(morph<0?.25:.5))*(1-stress*.12)*(1+waterPuff*.055);rig.torso.scale.y=.55*(1+morph*.12)*(1-stress*.1)*(1+waterPuff*.025);rig.torso.scale.z=.285*(1+morph*(morph<0?.3:.75))*(1+waterPuff*.24);rig.shirtFront.scale.set(rig.base.shirtFrontScale.x*(1+morph*(morph<0?.25:.5))*(1+waterPuff*.055),rig.base.shirtFrontScale.y*(1+morph*.12)*(1+waterPuff*.025),rig.base.shirtFrontScale.z*(1+morph*(morph<0?.3:.75))*(1+waterPuff*.24));rig.shirtFront.position.z=.285*(1+morph*(morph<0?.3:.75))-.02+waterPuff*.028;rig.cheeks.forEach((cheek,i)=>{const b=rig.base.cheekScales[i];cheek.scale.set(b.x*(1+waterPuff*.12),b.y*(1+waterPuff*.1),b.z*(1+waterPuff*.1));});rig.torso.rotation.z=stress>.35?.085:0;
+    rig.tongue.scale.set(.045,.025,.018);rig.tongue.visible=alive&&!state.neutral&&cause==='waterLow'&&stress>.15;rig.tongue.position.y=-.205+(alive?Math.sin(t*5.2)*.006*(rig.tongue.visible?1:0):0);if(rig.tongue.visible){rig.mouth.visible=true;rig.mouth.scale.set(.055+stress*.025,.045+stress*.035,.022);head.rotation.y=Math.sin(t*3.2)*(.1+stress*.14);for(const id of ['L','R']){const side=id==='L'?-1:1;rig['iris'+id].position.x=side*.13+Math.sin(t*2.8+(id==='L'?0:Math.PI))*.025;rig['iris'+id].position.y=.12-.025*Math.abs(Math.sin(t*2.8));}}
   }
   function solveArmToTarget(rig,arm,target,amount,endOffset){
     if(amount<=0)return null;
@@ -185,40 +187,47 @@ export function createCharacterStage(container,{onEvent=()=>{},onReady=()=>{},on
     const upperRadius=.14*Math.max(arm.upper.scale.x,arm.upper.scale.z),foreRadius=.085*Math.max(arm.fore.scale.x,arm.fore.scale.z),handClearance=Math.max(foreRadius,arm.palm.scale.z)+.018;
     const toTarget=target.clone().sub(shoulder),distance=toTarget.length(),axis=toTarget.clone().normalize();
     const d=clamp(distance,Math.abs(upperLength-foreLength)+.002,upperLength+foreLength-.006),along=(upperLength*upperLength-foreLength*foreLength+d*d)/(2*d),bend=Math.sqrt(Math.max(0,upperLength*upperLength-along*along));
-    const front=V(0,0,1).addScaledVector(axis,-axis.z).normalize();if(front.lengthSq()<.1)front.set(1,0,0).addScaledVector(axis,-axis.x).normalize();
-    const side=new THREE.Vector3().crossVectors(axis,front).normalize();
     const signedEllipsoid=(point,mesh,radius)=>{const p=mesh.position,s=mesh.scale,v=point.clone().sub(p).applyQuaternion(mesh.quaternion.clone().invert()),sx=Math.max(.001,s.x),sy=Math.max(.001,s.y),sz=Math.max(.001,s.z),q=Math.sqrt((v.x/sx)**2+(v.y/sy)**2+(v.z/sz)**2),grad=q>1e-5?Math.sqrt((v.x/(sx*sx))**2+(v.y/(sy*sy))**2+(v.z/(sz*sz))**2)/q:0;return(grad>1e-5?(q-1)/grad:-Math.min(sx,sy,sz))-radius;};
     const clearanceAt=(point,radius)=>Math.min(signedEllipsoid(point,rig.torso,radius),signedEllipsoid(point,rig.shirtFront,radius));
-    // A small proximal joint overlap is allowed in elbow selection so the distal forearm wins when the shoulder seam cannot clear both ellipsoids; reported clearances remain unmodified.
-    const proximalJointAllowance=.02,pathClearance=(elbowPoint)=>{let upperClearance=Infinity,foreClearance=Infinity;for(let i=1;i<=6;i++){const p=shoulder.clone().lerp(elbowPoint,.25+i*.125);upperClearance=Math.min(upperClearance,clearanceAt(p,upperRadius));}for(let i=0;i<=6;i++){const p=elbowPoint.clone().lerp(target,i/6);foreClearance=Math.min(foreClearance,clearanceAt(p,foreRadius));}return Math.min(foreClearance,upperClearance+proximalJointAllowance);};
-    let bestElbow=null,bestClearance=-Infinity;
-    for(let i=0;i<36;i++){const angle=i*Math.PI*2/36,perp=front.clone().multiplyScalar(Math.cos(angle)).addScaledVector(side,Math.sin(angle)),candidate=shoulder.clone().addScaledVector(axis,along).addScaledVector(perp,bend),clearance=pathClearance(candidate);if(clearance>bestClearance){bestClearance=clearance;bestElbow=candidate;}}
+    // A deterministic anatomical elbow pole keeps the arm on one continuous
+    // branch. The old 36-angle search could flip branches between adjacent
+    // frames and spent most of the animation budget measuring torso clearance.
+    // Project one fixed body-space direction only once. Normalizing a projected
+    // world-front vector first makes its direction singular when the arm axis
+    // approaches Z, which flips the elbow branch across adjacent frames.
+    const preferredPole=V(arm.side,0,0),pole=preferredPole.clone().addScaledVector(axis,-preferredPole.dot(axis));
+    if(pole.lengthSq()<1e-6){pole.copy(V(arm.side,-1,0)).addScaledVector(axis,-arm.side*axis.x+axis.y);}
+    if(pole.lengthSq()<1e-6)pole.set(0,1,0);pole.normalize();
+    const bestElbow=shoulder.clone().addScaledVector(axis,along).addScaledVector(pole,bend);
     const shoulderVector=bestElbow.clone().sub(shoulder),shoulderTarget=new THREE.Quaternion().setFromUnitVectors(arm.elbow.position.clone().normalize(),shoulderVector.clone().normalize());
     const shoulderInverse=shoulderTarget.clone().invert(),foreVector=target.clone().sub(bestElbow).applyQuaternion(shoulderInverse),elbowTarget=new THREE.Quaternion().setFromUnitVectors(gripOffset.clone().normalize(),foreVector.normalize());
     const shoulderBase=arm.sh.quaternion.clone(),elbowBase=arm.elbow.quaternion.clone();arm.sh.quaternion.copy(shoulderBase).slerp(shoulderTarget,amount);arm.elbow.quaternion.copy(elbowBase).slerp(elbowTarget,amount);
     rig.actor.updateMatrixWorld(true);
     const bodyPoint=worldPoint=>body.worldToLocal(worldPoint.clone()),shoulderNow=bodyPoint(arm.sh.getWorldPosition(V())),elbowNow=bodyPoint(arm.elbow.getWorldPosition(V()));let upperClearance=Infinity,foreClearance=Infinity;
-    for(let i=1;i<=6;i++){const p=shoulderNow.clone().lerp(elbowNow,.25+i*.125);upperClearance=Math.min(upperClearance,clearanceAt(p,upperRadius));}
-    const endpointNow=bodyPoint(arm.elbow.localToWorld(gripOffset.clone()));for(let i=0;i<=6;i++){const p=elbowNow.clone().lerp(endpointNow,i/6);foreClearance=Math.min(foreClearance,clearanceAt(p,foreRadius));}
+    for(let i=0;i<=12;i++){const p=shoulderNow.clone().lerp(elbowNow,.25+i*.75/12);upperClearance=Math.min(upperClearance,clearanceAt(p,upperRadius));}
+    const endpointNow=bodyPoint(arm.elbow.localToWorld(gripOffset.clone()));for(let i=0;i<=12;i++){const p=elbowNow.clone().lerp(endpointNow,i/12);foreClearance=Math.min(foreClearance,clearanceAt(p,foreRadius));}
     const clearance={upper:Number(upperClearance.toFixed(3)),fore:Number(foreClearance.toFixed(3)),units:'scene units',signed:true,shoulderZoneExcluded:.25};
     rig.armClearance=rig.armClearance||{};rig.armClearance[arm.id]=clearance;return clearance;
   }
   function gripSpoonAtMouth(rig,amount){
     if(amount<=0)return;const arm=rig.arms.find(a=>a.id==='R');if(!arm)return;
     rig.actor.updateMatrixWorld(true);
-    const body=rig.body,mouth=body.worldToLocal(rig.mouth.getWorldPosition(V())),bowlOffset=.28*rig.spoon.scale.y,handX=clamp(arm.sh.position.x*.62,.2,.34),handClearance=Math.max(.085*Math.max(arm.fore.scale.x,arm.fore.scale.z),arm.palm.scale.z)+.018;
-    const frontAt=(mesh,x,y)=>{const s=mesh.scale,p=mesh.position,q=mesh.quaternion.clone().invert(),origin=V(x-p.x,y-p.y,-p.z).applyQuaternion(q),direction=V(0,0,1).applyQuaternion(q),a=(direction.x/s.x)**2+(direction.y/s.y)**2+(direction.z/s.z)**2,b=2*(origin.x*direction.x/(s.x*s.x)+origin.y*direction.y/(s.y*s.y)+origin.z*direction.z/(s.z*s.z)),c=(origin.x/s.x)**2+(origin.y/s.y)**2+(origin.z/s.z)**2-1,disc=b*b-4*a*c;if(disc<0)return p.z;return(-b+Math.sqrt(disc))/(2*a);};
-    let handY=mouth.y-.36,gripZ=.2;for(let i=0;i<8;i++){const surface=Math.max(frontAt(rig.torso,handX,handY),frontAt(rig.shirtFront,handX,handY));gripZ=surface+handClearance;const dx=mouth.x-handX,dz=mouth.z-gripZ,vertical=Math.sqrt(Math.max(.008,bowlOffset*bowlOffset-dx*dx-dz*dz));handY=mix(handY,mouth.y-vertical,.58);}
-    const target=V(handX,handY,gripZ);rig.actor.updateMatrixWorld(true);const baseGrip=rig.body.worldToLocal(arm.elbow.localToWorld(rig.base.spoonPos.clone())),route=amount*2,wayX=Math.max(handX+.18,arm.sh.position.x*.88),wayY=mix(baseGrip.y,handY,.72),wayZ=Math.max(frontAt(rig.torso,wayX,wayY),frontAt(rig.shirtFront,wayX,wayY))+handClearance+.09,waypoint=V(wayX,wayY,wayZ),rawPathTarget=route<1?baseGrip.clone().lerp(waypoint,smooth(0,1,route)):waypoint.lerp(target,smooth(0,1,route-1)),shoulder=arm.sh.position.clone(),maxReach=arm.elbow.position.length()+rig.base.spoonPos.length()-.012,pathTarget=rawPathTarget.clone();
+    const body=rig.body,mouth=body.worldToLocal(rig.mouth.getWorldPosition(V())),spoonBowlOffset=rig.base.spoonPos.clone().add(V(0,.28*rig.spoon.scale.y,.01*rig.spoon.scale.z)),bowlOffset=spoonBowlOffset.length(),wristOffset=arm.hand.position.clone(),handClearance=Math.max(.085*Math.max(arm.fore.scale.x,arm.fore.scale.z),arm.palm.scale.z)+.018;
+    const frontAt=(mesh,x,y)=>{const s=mesh.scale,p=mesh.position,q=mesh.quaternion.clone().invert(),origin=V(x-p.x,y-p.y,-p.z).applyQuaternion(q),direction=V(0,0,1).applyQuaternion(q),a=(direction.x/s.x)**2+(direction.y/s.y)**2+(direction.z/s.z)**2,b=2*(origin.x*direction.x/(s.x*s.x)+origin.y*direction.y/(s.y*s.y)+origin.z*direction.z/(s.z*s.z)),c=(origin.x/s.x)**2+(origin.y/s.y)**2+(origin.z/s.z)**2-1,disc=b*b-4*a*c;if(disc<0)return -Infinity;return(-b+Math.sqrt(disc))/(2*a);};
+    const frontSurface=(x,y,fallback)=>{const surface=Math.max(frontAt(rig.torso,x,y),frontAt(rig.shirtFront,x,y));return Number.isFinite(surface)?surface:fallback;};
+    const wristX=clamp(mouth.x+.18,.16,.20),wristZ=mouth.z+.15,dx=mouth.x-wristX,dz=mouth.z-wristZ,vertical=Math.sqrt(Math.max(0,bowlOffset*bowlOffset-dx*dx-dz*dz));
+    const target=V(wristX,mouth.y-vertical,wristZ),contactAim=new THREE.Quaternion().setFromUnitVectors(spoonBowlOffset.clone().normalize(),mouth.clone().sub(target).normalize()),baseBodyAim=arm.sh.quaternion.clone().multiply(arm.elbow.quaternion).multiply(arm.hand.quaternion),bodyAim=baseBodyAim.clone().slerp(contactAim,amount);
+    rig.actor.updateMatrixWorld(true);arm.hand.quaternion.identity();const baseGrip=rig.body.worldToLocal(arm.elbow.localToWorld(wristOffset.clone())),route=amount*2,solveWeight=smooth(0,.10,amount),shoulder=arm.sh.position.clone(),wayX=Math.max(target.x+.18,shoulder.x+.12),wayY=Math.max(mix(baseGrip.y,target.y,.72),shoulder.y+.22),wayZ=Math.max(frontSurface(wayX,wayY,mouth.z-handClearance)+handClearance+.09,shoulder.z+.42),waypoint=V(wayX,wayY,wayZ),rawPathTarget=route<1?baseGrip.clone().lerp(waypoint,smooth(0,1,route)):waypoint.lerp(target,smooth(0,1,route-1)),maxReach=arm.elbow.position.length()+wristOffset.length()-.012,pathTarget=rawPathTarget.clone();
     // The straight interpolation between safe endpoints can cut through the belly. Keep each frame's grip on the rotated torso/shirt front and inside the arm's reachable sphere.
-    const routeClearance=.02*Math.sin(Math.PI*clamp(route/2));for(let i=0;i<6;i++){const surface=Math.max(frontAt(rig.torso,pathTarget.x,pathTarget.y),frontAt(rig.shirtFront,pathTarget.x,pathTarget.y));pathTarget.z=Math.max(pathTarget.z,surface+handClearance+routeClearance);const delta=pathTarget.clone().sub(shoulder),dz=pathTarget.z-shoulder.z,planar=Math.hypot(delta.x,delta.y),maxPlanar=Math.sqrt(Math.max(0,maxReach*maxReach-dz*dz));if(planar>maxPlanar&&planar>1e-6){const k=maxPlanar/planar;pathTarget.x=shoulder.x+delta.x*k;pathTarget.y=shoulder.y+delta.y*k;}}const finalSurface=Math.max(frontAt(rig.torso,pathTarget.x,pathTarget.y),frontAt(rig.shirtFront,pathTarget.x,pathTarget.y));pathTarget.z=Math.max(pathTarget.z,finalSurface+handClearance+routeClearance);
-    const solved=solveArmToTarget(rig,arm,pathTarget,1,rig.base.spoonPos);
-    if(!solved)return;const jointNow=arm.sh.quaternion.clone().multiply(arm.elbow.quaternion),mouthVector=mouth.clone().sub(target).normalize(),aim=new THREE.Quaternion().setFromUnitVectors(V(0,1,0),mouthVector),spoonTarget=jointNow.clone().invert().multiply(aim);
-    rig.spoon.position.copy(rig.base.spoonPos);rig.spoon.quaternion.identity().slerp(spoonTarget,amount);
+    const routeClearance=.02*Math.sin(Math.PI*clamp(route/2));for(let i=0;i<6;i++){const surface=frontSurface(pathTarget.x,pathTarget.y,mouth.z-handClearance);pathTarget.z=Math.max(pathTarget.z,surface+handClearance+routeClearance);const delta=pathTarget.clone().sub(shoulder),dz=pathTarget.z-shoulder.z,planar=Math.hypot(delta.x,delta.y),maxPlanar=Math.sqrt(Math.max(0,maxReach*maxReach-dz*dz));if(planar>maxPlanar&&planar>1e-6){const k=maxPlanar/planar;pathTarget.x=shoulder.x+delta.x*k;pathTarget.y=shoulder.y+delta.y*k;}}const finalSurface=frontSurface(pathTarget.x,pathTarget.y,mouth.z-handClearance);pathTarget.z=Math.max(pathTarget.z,finalSurface+handClearance+routeClearance);
+    // pathTarget already eases from the rest pose through the waypoint to the
+    // mouth; solve that point fully instead of applying the same amount twice.
+    const solved=solveArmToTarget(rig,arm,pathTarget,solveWeight,wristOffset);
+    if(!solved)return;const jointNow=arm.sh.quaternion.clone().multiply(arm.elbow.quaternion);arm.hand.quaternion.copy(jointNow.clone().invert().multiply(bodyAim));rig.spoon.position.copy(rig.base.spoonPos);rig.spoon.quaternion.identity();
     rig.actor.updateMatrixWorld(true);
     const bodyPoint=worldPoint=>body.worldToLocal(worldPoint.clone()),shoulderNow=bodyPoint(arm.sh.getWorldPosition(V())),elbowNow=bodyPoint(arm.elbow.getWorldPosition(V())),endpointNow=bodyPoint(rig.spoon.getWorldPosition(V()));
     const radius=.085*Math.max(arm.fore.scale.x,arm.fore.scale.z),signedEllipsoid=(point,mesh)=>{const p=mesh.position,s=mesh.scale,inv=mesh.quaternion.clone().invert(),v=point.clone().sub(p).applyQuaternion(inv),sx=Math.max(.001,s.x),sy=Math.max(.001,s.y),sz=Math.max(.001,s.z),q=Math.sqrt((v.x/sx)**2+(v.y/sy)**2+(v.z/sz)**2),grad=q>1e-5?Math.sqrt((v.x/(sx*sx))**2+(v.y/(sy*sy))**2+(v.z/(sz*sz))**2)/q:0;return(grad>1e-5?(q-1)/grad:-Math.min(sx,sy,sz))-radius;};
-    const clear=(p)=>Math.min(signedEllipsoid(p,rig.torso),signedEllipsoid(p,rig.shirtFront));let upper=Infinity,fore=Infinity;for(let i=1;i<=8;i++)upper=Math.min(upper,clear(shoulderNow.clone().lerp(elbowNow,.25+i*.09375)));for(let i=0;i<=8;i++)fore=Math.min(fore,clear(elbowNow.clone().lerp(endpointNow,i/8)));
+    const clear=(p)=>Math.min(signedEllipsoid(p,rig.torso),signedEllipsoid(p,rig.shirtFront));let upper=Infinity,fore=Infinity;for(let i=0;i<=16;i++)upper=Math.min(upper,clear(shoulderNow.clone().lerp(elbowNow,.25+i*.75/16)));for(let i=0;i<=16;i++)fore=Math.min(fore,clear(elbowNow.clone().lerp(endpointNow,i/16)));
     rig.armClearance=rig.armClearance||{};rig.armClearance.R={upper:Number(upper.toFixed(3)),fore:Number(fore.toFixed(3)),units:'scene units',signed:true,shoulderZoneExcluded:.25,sampled:true};
   }
   function measureArmClearance(rig,arm){
@@ -228,49 +237,34 @@ export function createCharacterStage(container,{onEvent=()=>{},onReady=()=>{},on
     let upper=Infinity,fore=Infinity,upperAt=.25,foreAt=0;for(let i=1;i<=8;i++){const u=.25+i*.09375,value=clear(shoulder.clone().lerp(elbow,u))-upperRadius;if(value<upper){upper=value;upperAt=u;}}for(let i=0;i<=8;i++){const u=i/8,value=clear(elbow.clone().lerp(endpoint,u))-foreRadius;if(value<fore){fore=value;foreAt=u;}}
     rig.armClearance=rig.armClearance||{};rig.armClearance[arm.id]={upper:Number(upper.toFixed(3)),fore:Number(fore.toFixed(3)),upperAt:Number(upperAt.toFixed(3)),foreAt:Number(foreAt.toFixed(3)),units:'scene units',signed:true,shoulderZoneExcluded:.25,sampled:true};return rig.armClearance[arm.id];
   }
-  function guardArmAgainstTorso(rig,arm,bellyGesture=false,gesture=null){
-    const current=measureArmClearance(rig,arm);if(!gesture&&current.fore>=.012&&current.upper>=-.012)return;
+  function guardArmAgainstTorso(rig,arm,bellyGesture=false,gesture=null,amount=1){
+    // Pose endpoints are chosen from the outer side of the torso. One stable
+    // IK solve keeps the hand readable without doing a candidate search per RAF.
     const body=rig.body,usesSpoon=arm.id==='R',endObject=usesSpoon?rig.spoon:arm.palm,hand=body.worldToLocal(endObject.getWorldPosition(V())),frontAt=(mesh,x,y)=>{const s=mesh.scale,p=mesh.position,q=mesh.quaternion.clone().invert(),origin=V(x-p.x,y-p.y,-p.z).applyQuaternion(q),direction=V(0,0,1).applyQuaternion(q),a=(direction.x/s.x)**2+(direction.y/s.y)**2+(direction.z/s.z)**2,b=2*(origin.x*direction.x/(s.x*s.x)+origin.y*direction.y/(s.y*s.y)+origin.z*direction.z/(s.z*s.z)),c=(origin.x/s.x)**2+(origin.y/s.y)**2+(origin.z/s.z)**2-1,disc=b*b-4*a*c;return disc<0?p.z:(-b+Math.sqrt(disc))/(2*a);},frontSurface=(mesh,x,y)=>{const s=mesh.scale,p=mesh.position,q=mesh.quaternion.clone().invert(),origin=V(x-p.x,y-p.y,-p.z).applyQuaternion(q),direction=V(0,0,1).applyQuaternion(q),a=(direction.x/s.x)**2+(direction.y/s.y)**2+(direction.z/s.z)**2,b=2*(origin.x*direction.x/(s.x*s.x)+origin.y*direction.y/(s.y*s.y)+origin.z*direction.z/(s.z*s.z)),c=(origin.x/s.x)**2+(origin.y/s.y)**2+(origin.z/s.z)**2-1,disc=b*b-4*a*c;return disc<0?null:(-b+Math.sqrt(disc))/(2*a);};
-    const surface=Math.max(frontAt(rig.torso,hand.x,hand.y),frontAt(rig.shirtFront,hand.x,hand.y)),sideExtent=rig.torso.scale.x*Math.sqrt(Math.max(0,1-((hand.y-rig.torso.position.y)/Math.max(.01,rig.torso.scale.y))**2)),offset=usesSpoon?rig.base.spoonPos.clone():arm.palm.position.clone(),safeX=arm.side*Math.max(Math.abs(hand.x),sideExtent+(usesSpoon?.045:arm.palm.scale.x)+.025),handClearance=Math.max(.085*Math.max(arm.fore.scale.x,arm.fore.scale.z),arm.palm.scale.z)+.018;
-    const shoulder=arm.sh.position.clone(),maxReach=arm.elbow.position.length()+offset.length()-.012;let target=gesture==='throat'?V(-.1,2.06,Math.max(frontAt(rig.torso,-.1,2.06),frontAt(rig.shirtFront,-.1,2.06))+handClearance):V(bellyGesture&&!usesSpoon?hand.x:safeX,hand.y,Math.max(hand.z,surface+(usesSpoon?.04:arm.palm.scale.z)+.05));
+    const offset=usesSpoon?rig.base.spoonElbowOffset.clone():arm.hand.position.clone().add(arm.palm.position),targetY=usesSpoon?mix(hand.y,Math.max(hand.y,1.3),amount):hand.y,sideExtent=rig.torso.scale.x*Math.sqrt(Math.max(0,1-((targetY-rig.torso.position.y)/Math.max(.01,rig.torso.scale.y))**2)),safeX=arm.side*Math.max(Math.abs(hand.x),sideExtent+(usesSpoon?.045:arm.palm.scale.x)+.025),targetX=bellyGesture&&!usesSpoon?hand.x:safeX,targetSurface=Math.max(frontAt(rig.torso,targetX,targetY),frontAt(rig.shirtFront,targetX,targetY)),handClearance=Math.max(.085*Math.max(arm.fore.scale.x,arm.fore.scale.z),arm.palm.scale.z)+.018;
+    arm.hand.quaternion.identity();const shoulder=arm.sh.position.clone(),maxReach=arm.elbow.position.length()+offset.length()-.012;let target=gesture==='throat'?V(-.1,2.06,Math.max(frontAt(rig.torso,-.1,2.06),frontAt(rig.shirtFront,-.1,2.06))+handClearance):V(targetX,targetY,Math.max(hand.z,targetSurface+(usesSpoon?.04:arm.palm.scale.z)+.05));
     if(arm.id!=='L'){
-      const delta=target.clone().sub(shoulder);if(delta.length()>maxReach)target.copy(shoulder.addScaledVector(delta.normalize(),maxReach));solveArmToTarget(rig,arm,target,1,offset);return;
+      const delta=target.clone().sub(shoulder);if(delta.length()>maxReach)target.copy(shoulder.addScaledVector(delta.normalize(),maxReach));solveArmToTarget(rig,arm,target,amount,offset);return;
     }
-    // Search a small set of reachable hand contacts along the actual side/front silhouette.
-    // Keep z fixed while checking reach: radial clamping can pull a safe hand back through the torso.
+    // Keep the left hand outside the silhouette with a single predictable solve.
     const sideRadiusAt=y=>rig.torso.scale.x*Math.sqrt(Math.max(0,1-((y-rig.torso.position.y)/Math.max(.01,rig.torso.scale.y))**2));
     const sideContact=(y,lateral,margin)=>{const sy=Math.max(.01,rig.torso.scale.y),yy=clamp(y,rig.torso.position.y-.78*sy,rig.torso.position.y+.78*sy),sideRadius=sideRadiusAt(yy),surfaceX=arm.side*sideRadius*.985,fronts=[frontSurface(rig.torso,surfaceX,yy),frontSurface(rig.shirtFront,surfaceX,yy)].filter(Number.isFinite),front=fronts.length?Math.max(...fronts):frontAt(rig.torso,surfaceX,yy);return V(arm.side*(sideRadius+lateral+.015),yy,front+handClearance+margin);};
-    const solutionKey=bellyGesture?'belly':gesture||'side',sy=Math.max(.01,rig.torso.scale.y),centerY=rig.torso.position.y,palmRadius=Math.max(.065,arm.palm.scale.x);
-    // Reuse the last local surface contact while it remains safe. This keeps the
-    // articulated guard light enough for RAF and avoids endpoint chatter.
-    const cached=arm.guardSolution;
-    if(cached?.key===solutionKey){const cachedTarget=sideContact(centerY+cached.yRatio*sy,palmRadius*cached.lateralFactor,cached.margin),distance=cachedTarget.distanceTo(shoulder),minReach=Math.abs(arm.elbow.position.length()-offset.length())+.006;
-      if(distance<=maxReach-.006&&distance>=minReach){const clearance=solveArmToTarget(rig,arm,cachedTarget,1,offset);if(clearance?.fore>=.025&&clearance.upper>=-.02){rig.armClearance[arm.id]=clearance;const debug={point:cachedTarget.toArray(),distance:Number(distance.toFixed(3)),maxReach:Number(maxReach.toFixed(3)),withinReach:true,contact:solutionKey,score:Number(Math.min(clearance.fore,clearance.upper+.02).toFixed(3)),fore:Number(clearance.fore.toFixed(3)),upper:Number(clearance.upper.toFixed(3)),cached:true};rig.bellyTargetDebug=bellyGesture?debug:null;rig.armGuardDebug=debug;return;}}
-    }
-    if(cached&&cached.key!==solutionKey)arm.guardSolution=null;
-    const candidates=[{target:target.clone(),kind:gesture||'side'}];
-    if(gesture==='throat')candidates.unshift({target:V(-.1,2.06,Math.max(frontAt(rig.torso,-.1,2.06),frontAt(rig.shirtFront,-.1,2.06))+handClearance),kind:'throat'});
-    const yValues=[hand.y,...[-.3,-.05,0,.18,.35,.4,.5,.7].map(ratio=>centerY+ratio*sy)];
-    const uniqueYs=[];for(const y of yValues){const yy=clamp(y,centerY-.78*sy,centerY+.78*sy);if(!uniqueYs.some(v=>Math.abs(v-yy)<.025))uniqueYs.push(yy);}
-    for(const y of uniqueYs)for(const factor of [.7,1,1.3])candidates.push({target:sideContact(y,palmRadius*factor,.05),kind:bellyGesture?'belly-side':'side'});
-    let bestSafe=null,bestAny=null;
-    const minReach=Math.abs(arm.elbow.position.length()-offset.length())+.006;
-    const reachable=candidates.map(item=>({...item,distance:item.target.distanceTo(shoulder),movement:item.target.distanceTo(hand)})).filter(item=>item.distance<=maxReach-.006&&item.distance>=minReach).sort((a,b)=>a.movement-b.movement);
-    for(const item of reachable){const candidate=item.target,distance=item.distance,movement=item.movement;
-      const clearance=solveArmToTarget(rig,arm,candidate,1,offset);if(!clearance)continue;const score=Math.min(clearance.fore,clearance.upper+.02),entry={target:candidate.clone(),kind:item.kind,clearance:{...clearance},score,movement,shoulderQ:arm.sh.quaternion.clone(),elbowQ:arm.elbow.quaternion.clone()};
-      const distalScore=clearance.fore,betterDistal=!bestAny||distalScore>bestAny.clearance.fore+1e-5||(Math.abs(distalScore-bestAny.clearance.fore)<1e-5&&(clearance.upper>bestAny.clearance.upper+1e-5||(Math.abs(clearance.upper-bestAny.clearance.upper)<1e-5&&movement<bestAny.movement)));
-      if(betterDistal)bestAny=entry;
-      if(clearance.fore>=.025&&clearance.upper>=-.02){bestSafe=entry;break;}
-    }
-    const best=bestSafe||bestAny;if(best){arm.sh.quaternion.copy(best.shoulderQ);arm.elbow.quaternion.copy(best.elbowQ);rig.armClearance[arm.id]=best.clearance;const debug={point:best.target.toArray(),distance:Number(best.target.distanceTo(shoulder).toFixed(3)),maxReach:Number(maxReach.toFixed(3)),withinReach:true,contact:best.kind,score:Number(best.score.toFixed(3)),fore:Number(best.clearance.fore.toFixed(3)),upper:Number(best.clearance.upper.toFixed(3))};rig.bellyTargetDebug=bellyGesture?debug:null;rig.armGuardDebug=debug;
-      const deltaY=best.target.y-centerY,sideRadius=sideRadiusAt(best.target.y),lateralFactor=clamp((Math.abs(best.target.x)-sideRadius-.015)/palmRadius,.4,1.8);arm.guardSolution={key:solutionKey,yRatio:deltaY/sy,lateralFactor,margin:.05};
-    }else{rig.armGuardDebug={point:target.toArray(),distance:Number(target.distanceTo(shoulder).toFixed(3)),maxReach:Number(maxReach.toFixed(3)),withinReach:false,contact:gesture||'side',score:null};}
+    const sy=Math.max(.01,rig.torso.scale.y),centerY=rig.torso.position.y,palmRadius=Math.max(.065,arm.palm.scale.x);
+    const contactY=gesture==='throat'?2.06:clamp(rig.torso.position.y-.08,1.36,1.52);
+    const bellyX=-Math.min(.27,Math.max(.17,rig.torso.scale.x*.52)),bellyZ=Math.max(frontAt(rig.torso,bellyX,contactY),frontAt(rig.shirtFront,bellyX,contactY))+handClearance+.085;
+    const stableTarget=gesture==='throat'?target:gesture==='belly'?V(bellyX,contactY,bellyZ):sideContact(contactY,palmRadius*1.1,.075);
+    if(gesture==='belly')arm.sh.rotation.x=mix(arm.sh.rotation.x,-.18,amount);
+    const clearance=solveArmToTarget(rig,arm,stableTarget,amount,offset);
+    rig.armClearance[arm.id]=clearance;rig.bellyTargetDebug=bellyGesture?{point:stableTarget.toArray(),contact:'belly-front',withinReach:true}:null;
+    rig.armGuardDebug={point:stableTarget.toArray(),contact:gesture||'side',withinReach:true,score:Math.min(clearance?.fore??0,clearance?.upper??0)};
   }
   function changePhase(phase,caption){if(state.phase===phase)return;state.phase=phase;if(phase==='dead'&&state.fatal)state.dead=true;const deadEvent=phase==='dead'&&state.dead&&!state.deadEventSent;if(deadEvent)state.deadEventSent=true;events.push({type:deadEvent?'dead':'phase',phase,caption});}
   const captions={anticipation:'Todavía cabe una cucharadita.',reaction:{energy:'La siguiente cucharada la levanto mañana.',waterLow:'Puedo decir “croqueta”. Tragarla ya es otra cosa.',waterHigh:'Ya. No me cabe ni el hipo.',salt:'Me quedó un poco… ¿dónde está el agua?',gut:'No te agaches. Repito: no te agaches.',iron:'Las rodillas se sentaron antes que yo.',mixed:'Perfecto. Ahora todo me pasa a la vez.'},fall:'La cuchara arriba. La dignidad, abajo.',impact:'Todavía la tengo.',dead:'Morirse, sí. Soltar el postre, jamás.',ghost:'Eh. Esa cuchara venía conmigo.',retry:'Venga. Suelta…',resigned:'Vale. Nos turnamos.'};
   function resetTransient(){for(const p of sweat)p.visible=false;for(const p of stars)p.visible=false;ghost.visible=false;}
+  function captureEntryPose(rig){const nodes=[rig.actor,rig.body,rig.torso,rig.shirtFront,rig.head,rig.headShape,rig.mouth,rig.smile,rig.tongue,...rig.cheeks,...['L','R'].flatMap(id=>[rig['brow'+id],rig['lid'+id],rig['iris'+id],rig.arms.find(a=>a.id===id).sh,rig.arms.find(a=>a.id===id).elbow,rig.arms.find(a=>a.id===id).hand,rig.legs.find(l=>l.id===id).hip,rig.legs.find(l=>l.id===id).knee,rig.legs.find(l=>l.id===id).foot])];return nodes.filter(Boolean).map(node=>({node,position:node.position.clone(),quaternion:node.quaternion.clone(),scale:node.scale.clone()}));}
+  function blendEntryPose(rig,phaseTime){const snapshot=state.entryPose;if(!snapshot)return;const blend=smooth(0,520,phaseTime);if(blend>=1)return;for(const item of snapshot){const node=item.node,targetQuaternion=node.quaternion.clone();node.position.lerpVectors(item.position,node.position,blend);node.quaternion.slerpQuaternions(item.quaternion,targetQuaternion,blend);node.scale.lerpVectors(item.scale,node.scale,blend);}}
   function updateAnimation(dt){
-    if(disposed)return;const t=clock/1000;const rig=active;rig.armClearance={};rig.bellyTargetDebug=null;const {stress,deficit,imbalance,cue,cues,effects,critical,dominantNutrient}=profileStress();let phaseTime=state.playing?Math.max(0,clock-state.started):0;
+    if(disposed)return;const t=clock/1000;const rig=active;rig.head.position.copy(rig.base.headPos);rig.arms.forEach(a=>{a.hand.quaternion.identity();a.hand.rotation.set(0,0,0);});rig.spoon.quaternion.identity();rig.armClearance={};rig.bellyTargetDebug=null;const {stress,deficit,imbalance,cue,cues,effects,critical,dominantNutrient}=profileStress();let phaseTime=state.playing?Math.max(0,clock-state.started):0;
     if(!state.playing){rig.actor.position.copy(rig.base.actorPos);rig.body.position.copy(rig.base.bodyPos);rig.actor.rotation.set(0,0,0);rig.actor.scale.set(1,1,1);rig.shadow.visible=true;rig.shadow.material.opacity=.15+stress*.09;
       const morph=state.massKg<70?(state.massKg-70)/30:(state.massKg-70)/90;lastAppliedMorphMass=state.massKg;
       // Local shape changes keep the skeleton's reach intact: belly, hips, limbs and face morph together.
@@ -280,8 +274,8 @@ export function createCharacterStage(container,{onEvent=()=>{},onReady=()=>{},on
       rig.waist.scale.set(rig.base.waistScale.x*(1+morph*.48),rig.base.waistScale.y*(1+morph*.12),rig.base.waistScale.z*(1+morph*.46));
       rig.trousers.scale.set(rig.base.trousersScale.x*(1+morph*.40),rig.base.trousersScale.y*(1+morph*.08),rig.base.trousersScale.z*(1+morph*.42));
       rig.headShape.scale.set((rig.profile==='mujer'?.355:.39)*(1+morph*.09),rig.base.headShapeScale.y,rig.base.headShapeScale.z*(1+morph*.07));
-      const shoulderSpread=Math.max((rig.profile==='mujer'?.39:.46)*(1+morph*.45),rig.torso.scale.x+.02),hipSpread=(rig.profile==='mujer'?.34:.39)*(1+morph*.3);
-      rig.arms.forEach(a=>{a.sh.position.x=a.side*shoulderSpread;a.upper.scale.set(1+morph*.32,1,1+morph*.38);a.cuff.scale.set(.122*(1+morph*.3),.085,.125*(1+morph*.36));a.fore.scale.set(1+morph*.28,1,1+morph*.34);a.palm.scale.set(.115*(1+morph*.2),.12,.065*(1+morph*.23));});
+      const shoulderSpread=Math.max((rig.profile==='mujer'?.39:.46)*.72,rig.torso.scale.x*.85+.085),hipSpread=(rig.profile==='mujer'?.34:.39)*(1+morph*.3);
+      rig.arms.forEach(a=>{a.sh.position.set(a.side*shoulderSpread,1.88,Math.max(0,morph*.34));a.upper.scale.set(1+morph*.32,1,1+morph*.38);a.cuff.scale.set(.122*(1+morph*.3),.085,.125*(1+morph*.36));a.fore.scale.set(1+morph*.28,1,1+morph*.34);a.palm.scale.set(.115*(1+morph*.2),.12,.065*(1+morph*.23));});
       rig.legs.forEach(a=>{a.hip.position.x=a.side*hipSpread*.52;a.thigh.scale.set(1+morph*.35,1,1+morph*.42);a.shin.scale.set(1+morph*.23,1,1+morph*.3);});
       const c=cue;rig.torso.rotation.x=0;rig.headShape.scale.y=rig.base.headShapeScale.y;rig.tongue.scale.set(.045,.025,.018);rig.tongue.visible=false;rig.smile.rotation.z=0;expression(rig,stress,c,t);
       const breath=Math.sin(t*1.35)*.012;rig.body.position.y=-1.22+breath-stress*.12;rig.body.rotation.set(0,0,0);rig.head.rotation.y=Math.sin(t*.3)*.018;
@@ -297,29 +291,30 @@ export function createCharacterStage(container,{onEvent=()=>{},onReady=()=>{},on
       if(stress>.15&&cues.includes('waterHigh')){rig.actor.rotation.z+=Math.sin(t*5)*stress*.14;rig.arms.forEach((a,i)=>a.sh.rotation.z+=(i?1:-1)*(.32+stress*.25));rig.cheeks.forEach(c=>c.scale.multiplyScalar(1+stress*.16));rig.mouth.visible=true;rig.mouth.scale.set(.04,.022,.018);}
       if(stress>.15&&cues.includes('salt')){rig.head.rotation.x-=.1+stress*.08;rig.arms[0].sh.rotation.set(-.32,0,.24);rig.arms[0].elbow.rotation.z=.42;}
       if(stress>.15&&cues.includes('sodiumLow')){rig.arms.forEach((a,i)=>{a.sh.rotation.x+=Math.sin(t*18+i*Math.PI)*stress*.13;a.elbow.rotation.z+=Math.sin(t*22+i*Math.PI)*stress*.09;});rig.actor.rotation.z+=Math.sin(t*18)*stress*.018;}
-      rig.spoon.rotation.z=stress>.3?-.22:0;
+      rig.arms[1].hand.rotation.z=stress>.3?-.22:0;
       rig.shadow.scale.copy(rig.base.shadowScale).multiplyScalar(1+stress*.12);
       if(!state.neutral&&state.activeNutrient&&state.levels[state.activeNutrient]!==undefined){const delta=state.levels[state.activeNutrient]-100;if(delta!==0){const sign=Math.sign(delta),signal=clamp(Math.abs(delta)/130);const side=(['energia','agua','hierro','calcio'].includes(state.activeNutrient)?-1:1);rig.actor.rotation.z+=sign*(.045+signal*.11);rig.body.rotation.z+=sign*(.035+signal*.08);rig.arms[side<0?0:1].sh.rotation.x+=sign*(.06+signal*.13);rig.head.rotation.z+=side*(.025+signal*.055);rig['brow'+(side<0?'L':'R')].rotation.z+=sign*.07;}}
-      const fiberCue=effects.find(e=>e.nutrient==='fibra'&&e.strength>.12),bellyGesture=cues.includes('gut')||!!fiberCue;rig.arms.forEach(arm=>{if(arm.id==='L'&&bellyGesture)guardArmAgainstTorso(rig,arm,true,'belly');else if(arm.id==='L'&&cues.includes('salt'))guardArmAgainstTorso(rig,arm,false,'throat');else guardArmAgainstTorso(rig,arm,false);});
+      const fiberCue=effects.find(e=>e.nutrient==='fibra'&&e.strength>.12),bellyGesture=cues.includes('gut')||!!fiberCue;rig.arms.forEach(arm=>{if(arm.id==='L'&&bellyGesture)guardArmAgainstTorso(rig,arm,true,'belly');else if(arm.id==='L'&&(cues.includes('salt')||cues.includes('waterLow')))guardArmAgainstTorso(rig,arm,false,'throat');else guardArmAgainstTorso(rig,arm,false);});
       sweat.forEach((p,i)=>{p.visible=stress>.3&&i<Math.ceil(stress*5);const q=(t*.65+i*.21)%1,f=.55+q*.4;p.position.set((i%2?1:-1)*(.3+q*.18),2.48-q*.52,.38);p.scale.set(.035*f,.06*f,.02*f);});
+      if(state.revivePose){const rise=smooth(0,760,clock-state.revivePose.started),from=state.revivePose;rig.actor.position.lerpVectors(from.actorPosition,rig.base.actorPos,rise);rig.actor.quaternion.slerpQuaternions(from.actorQuaternion,rig.actor.quaternion.clone(),rise);rig.body.position.lerpVectors(from.bodyPosition,rig.body.position.clone(),rise);rig.body.quaternion.slerpQuaternions(from.bodyQuaternion,rig.body.quaternion.clone(),rise);rig.arms.forEach((a,i)=>{a.sh.quaternion.slerpQuaternions(from.arms[i].shoulder,a.sh.quaternion.clone(),rise);a.elbow.quaternion.slerpQuaternions(from.arms[i].elbow,a.elbow.quaternion.clone(),rise);});rig.legs.forEach((l,i)=>{l.hip.quaternion.slerpQuaternions(from.legs[i].hip,l.hip.quaternion.clone(),rise);l.knee.quaternion.slerpQuaternions(from.legs[i].knee,l.knee.quaternion.clone(),rise);});if(rise>=1){state.revivePose=null;state.phase='idle';}}
       return;
     }
     if(state.tasting){
-      const tTaste=phaseTime,lift=smooth(120,1150,tTaste)*(1-smooth(2050,2900,tTaste));
-      rig.actor.position.copy(rig.base.actorPos);rig.actor.rotation.set(0,0,0);rig.actor.scale.set(1,1,1);rig.body.position.set(0,-1.22+Math.sin(t*.9)*.012,0);rig.body.rotation.set(0,0,0);rig.shadow.visible=true;rig.shadow.material.opacity=.16;
-      rig.arms.forEach(({side,sh,elbow})=>{sh.rotation.set(0,0,side*.30);elbow.rotation.set(0,0,0);});gripSpoonAtMouth(rig,lift);
+      const tTaste=phaseTime,lift=smooth(120,1600,tTaste)*(1-smooth(2200,3800,tTaste)),bite=smooth(1550,1640,tTaste)*(1-smooth(1810,1900,tTaste)),chewEnvelope=smooth(1840,1980,tTaste)*(1-smooth(2710,2860,tTaste)),chewPulse=(smooth(1980,2040,tTaste)*(1-smooth(2110,2170,tTaste))+smooth(2220,2280,tTaste)*(1-smooth(2350,2410,tTaste))+smooth(2460,2520,tTaste)*(1-smooth(2590,2650,tTaste))),chew=chewEnvelope*chewPulse;
+      rig.actor.position.copy(rig.base.actorPos);rig.actor.rotation.set(0,0,0);rig.actor.scale.set(1,1,1);rig.body.position.set(0,-1.22+Math.sin(phaseTime/1000*.9)*.012,0);rig.body.rotation.set(0,0,0);rig.shadow.visible=true;rig.shadow.material.opacity=.16;
+      rig.arms.forEach(({side,sh,elbow,hand})=>{sh.rotation.set(0,0,side*.30);elbow.rotation.set(0,0,0);hand.quaternion.identity();hand.rotation.set(0,0,0);});
       rig.legs.forEach(({hip,knee,foot})=>{hip.rotation.set(0,0,0);knee.rotation.set(0,0,0);foot.rotation.set(0,0,0);});
-      rig.spoon.position.copy(rig.base.spoonPos);rig.head.rotation.set(.02*lift,0,-.04*lift);rig.headShape.scale.copy(rig.base.headShapeScale);rig.torso.rotation.set(0,0,0);rig.tongue.visible=false;rig.mouth.visible=false;rig.smile.visible=true;rig.smile.rotation.z=.08*lift;
-      for(const id of ['L','R']){rig['lid'+id].scale.y=.018;rig['brow'+id].rotation.z=id==='R'?.11:-.04;rig['deadCross'+id].visible=false;}
-      guardArmAgainstTorso(rig,rig.arms[0],false);
-      if(tTaste<400)changePhase('tasting','Todavía cabe una cucharadita.');else if(tTaste<2450)changePhase('tasting','A ver… sí quedaba sitio.');else changePhase('tasting','He vuelto. ¿Queda postre?');
-      state.progress=clamp(tTaste/3500);
-      if(tTaste>=3500){state.playing=false;state.tasting=false;changePhase('idle','He vuelto. ¿Queda postre?');}
+      rig.head.rotation.set(.025*lift,0,-.055*lift);rig.headShape.scale.copy(rig.base.headShapeScale);rig.torso.rotation.set(0,0,0);rig.tongue.visible=bite>.25;rig.mouth.visible=bite>.02||chew>.02;rig.mouth.scale.set(.03+bite*.045+chew*.022,.018+bite*.045+chew*.024,.018);rig.smile.visible=!rig.mouth.visible;rig.smile.rotation.z=.08*lift;
+      for(const id of ['L','R']){const side=id==='L'?-1:1;rig['lid'+id].scale.y=.018;rig['brow'+id].rotation.z=id==='R'?.11:-.04;rig['deadCross'+id].visible=false;rig['iris'+id].position.set(side*.13+lift*.026,.12+lift*.025,.321);}
+      guardArmAgainstTorso(rig,rig.arms[0],false);gripSpoonAtMouth(rig,lift);
+      changePhase('tasting','Bien. Otra cucharada.');
+      state.progress=clamp(tTaste/4300);
+      if(tTaste>=4300){state.playing=false;state.tasting=false;changePhase('idle','Bien. Otra cucharada.');}
       return;
     }
     // Cinematic phases use elapsed real time. Each pose is recomputed from rig bases every frame.
     const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const anticipation=smooth(180,TIMELINE.anticipationEnd-250,phaseTime),react=smooth(TIMELINE.anticipationEnd,TIMELINE.reactionEnd,phaseTime),rawFall=reduced?Number(phaseTime>=TIMELINE.fallEnd):clamp((phaseTime-TIMELINE.fallStart)/(TIMELINE.fallEnd-TIMELINE.fallStart));
+    const anticipation=smooth(180,TIMELINE.anticipationEnd-250,phaseTime),withdraw=smooth(TIMELINE.anticipationEnd,TIMELINE.anticipationEnd+2000,phaseTime),react=smooth(TIMELINE.anticipationEnd+2000,TIMELINE.reactionEnd,phaseTime),spoonGripAmount=phaseTime<TIMELINE.anticipationEnd?anticipation:1-withdraw,rawFall=reduced?Number(phaseTime>=TIMELINE.fallEnd):clamp((phaseTime-TIMELINE.fallStart)/(TIMELINE.fallEnd-TIMELINE.fallStart));
     const shapedFall=state.cause==='energy'?Math.pow(rawFall,2.15):state.cause==='waterLow'?Math.pow(rawFall,1.22):state.cause==='waterHigh'?smooth(.04,.88,rawFall):state.cause==='salt'?smooth(.16,1,rawFall):state.cause==='gut'?Math.pow(rawFall,1.18):state.cause==='iron'?Math.pow(rawFall,1.08):Math.pow(rawFall,1.35);
     const stumble=reduced?Number(phaseTime>=TIMELINE.fallEnd):shapedFall,impact=reduced?0:smooth(TIMELINE.fallStart+2400,TIMELINE.fallStart+3000,phaseTime),ghostOut=reduced?Number(phaseTime>=TIMELINE.deadEnd):smooth(TIMELINE.deadEnd,TIMELINE.ghostEnd,phaseTime);
     if(phaseTime<TIMELINE.anticipationEnd){changePhase('anticipation',captions.anticipation)}
@@ -333,64 +328,69 @@ export function createCharacterStage(container,{onEvent=()=>{},onReady=()=>{},on
     else if(state.fatal&&phaseTime<TIMELINE.finish){changePhase('resigned',captions.resigned)}
     else if(state.fatal){changePhase('dead',captions.resigned);}
     else {changePhase('idle','He vuelto. ¿Queda postre?');state.playing=false;}
-    const rise=state.fatal?0:smooth(TIMELINE.fallEnd,TIMELINE.nonfatalFinish,phaseTime);const fall=stumble*(1-rise);const roll=mix(0,Math.PI/2,fall);const impactBounce=state.fatal&&phaseTime<TIMELINE.fallStart+3000?Math.sin(clamp((phaseTime-(TIMELINE.fallStart+2400))/600)*Math.PI)*.17:0;const massMorph=state.massKg<70?(state.massKg-70)/30:(state.massKg-70)/90;const floorHeight=state.massKg<49?Math.max(.36,.5+massMorph*.2):.5+massMorph*.2;
-    const stagger=state.cause==='iron'&&!reduced?Math.sin(t*8)*.14*(1-fall):0,wobble=state.cause==='waterHigh'&&!reduced?Math.sin(t*7)*.18*(1-fall):0;
-    rig.actor.position.set(stagger+wobble,mix(1.22,floorHeight,fall)+(reduced?0:impactBounce),0);rig.actor.rotation.set(state.cause==='waterLow'?.08*fall:state.cause==='waterHigh'&&!reduced?Math.sin(t*7)*.09*(1-fall):0,0,roll);rig.body.position.set(0,-1.22,0);rig.body.rotation.set(0,0,0);rig.actor.scale.set(1,1,1);rig.torso.rotation.set(0,0,0);
-    rig.torso.rotation.z=state.cause==='gut'?.20*(1-fall)*react:0;rig.arms.forEach(({side,sh,elbow,id},i)=>{sh.rotation.set(0,0,0);elbow.rotation.set(0,0,0);const swing=smooth(TIMELINE.anticipationEnd,TIMELINE.reactionEnd,phaseTime);sh.rotation.z=side*.30+side*mix(.02,.65,swing);if(phaseTime<TIMELINE.anticipationEnd&&id!=='R')sh.rotation.z=side*(.30-.12*anticipation);if(phaseTime>=TIMELINE.fallStart)sh.rotation.z=side*(mix(.65,1.4,fall));elbow.rotation.z+=side*(mix(.1,.9,fall));});if(phaseTime<TIMELINE.anticipationEnd)gripSpoonAtMouth(rig,anticipation);
-    if(phaseTime>=TIMELINE.fallStart){const left=rig.arms[0];left.sh.rotation.z=mix(left.sh.rotation.z,1.15,fall);left.elbow.rotation.z=mix(left.elbow.rotation.z,1.05,fall);}
-    rig.legs.forEach(({side,hip,knee,foot,id},i)=>{hip.rotation.set(0,0,0);knee.rotation.set(0,0,0);foot.rotation.set(0,0,0);if(phaseTime>TIMELINE.reactionEnd-200){const step=phaseTime<TIMELINE.fallEnd?Math.sin(clamp((phaseTime-(TIMELINE.reactionEnd-200))/1800)*Math.PI):0;hip.rotation.z=side*(mix(0,.28,fall)+step*.24);knee.rotation.x=mix(0,.72,fall)+step*.48;if(state.cause==='iron'&&i===1)knee.rotation.x+=.35*(1-fall);}});
+    const rise=state.fatal?0:smooth(TIMELINE.fallEnd,TIMELINE.nonfatalFinish,phaseTime);const fall=stumble*(1-rise);const roll=mix(0,1.34,fall);const impactBounce=state.fatal&&phaseTime<TIMELINE.fallStart+3000?Math.sin(clamp((phaseTime-(TIMELINE.fallStart+2400))/600)*Math.PI)*.17:0;const massMorph=state.massKg<70?(state.massKg-70)/30:(state.massKg-70)/90;const floorHeight=state.massKg<49?Math.max(.36,.5+massMorph*.2):.5+massMorph*.2;
+    const stagger=0,wobble=0;
+    rig.actor.position.set(stagger+wobble,mix(1.22,floorHeight,fall)+(reduced?0:impactBounce),0);rig.actor.rotation.set(state.cause==='waterLow'?.08*fall:0,0,roll);rig.body.position.set(0,-1.22,0);rig.body.rotation.set(0,0,0);rig.actor.scale.set(1,1,1);rig.torso.rotation.set(0,0,0);
+    rig.torso.rotation.z=state.cause==='gut'?.20*(1-fall)*react:0;const fallArmBlend=smooth(TIMELINE.fallStart,TIMELINE.fallStart+800,phaseTime);rig.arms.forEach(({side,sh,elbow,id,hand})=>{sh.rotation.set(0,0,0);elbow.rotation.set(0,0,0);hand.rotation.set(0,0,0);hand.quaternion.identity();const swing=smooth(TIMELINE.anticipationEnd+2000,TIMELINE.reactionEnd,phaseTime);sh.rotation.z=side*.30+side*mix(.02,.65,swing);if(phaseTime<TIMELINE.anticipationEnd&&id!=='R')sh.rotation.z=side*(.30-.12*anticipation);sh.rotation.z=mix(sh.rotation.z,side*1.15,fall*fallArmBlend);elbow.rotation.z+=side*mix(.1,.65,fall);});
+    if(phaseTime>=TIMELINE.fallStart){const left=rig.arms[0],right=rig.arms[1];left.sh.rotation.z=mix(left.sh.rotation.z,-.42,fall);left.elbow.rotation.z=mix(left.elbow.rotation.z,-.48,fall);right.sh.rotation.z=mix(right.sh.rotation.z,-.62,fall);right.elbow.rotation.z=mix(right.elbow.rotation.z,-.44,fall);}
+    rig.legs.forEach(({side,hip,knee,foot,id},i)=>{hip.rotation.set(0,0,0);knee.rotation.set(0,0,0);foot.rotation.set(0,0,0);if(phaseTime>TIMELINE.reactionEnd-200){const load=smooth(TIMELINE.reactionEnd-200,TIMELINE.fallStart+200,phaseTime),step=phaseTime<TIMELINE.fallEnd?Math.sin(clamp((phaseTime-(TIMELINE.reactionEnd-200))/1800)*Math.PI):0;hip.rotation.z=mix(side*.02,-.16-.10*i,fall)+side*step*.08;knee.rotation.z=mix(0,-.60-.08*i,fall)-step*.22;knee.rotation.x=.08*load;if(state.cause==='iron'&&i===1){hip.rotation.z-=.20*(1-fall);knee.rotation.z-=.18*(1-fall);}}});
     rig.head.rotation.set(mix(.0,.18,react),0,mix(0,.08,fall));
-    const preFall=(1-smooth(TIMELINE.fallStart,TIMELINE.fallStart+400,phaseTime))*smooth(TIMELINE.fallStart-450,TIMELINE.fallStart,phaseTime);rig.actor.rotation.z=roll+(phaseTime<TIMELINE.fallEnd?-.045*Math.sin(phaseTime/TIMELINE.fallEnd*Math.PI):0)-preFall*.17;
+    const preFall=(1-smooth(TIMELINE.fallStart,TIMELINE.fallStart+400,phaseTime))*smooth(TIMELINE.fallStart-450,TIMELINE.fallStart,phaseTime);rig.actor.rotation.z=roll-preFall*.17;
     // Establish facial and body baselines before cause and nutrient layers add their acting.
-    expression(rig,stress,state.cause,t);
-    const recovery=1-fall;
-    if(state.cause==='energy'){rig.body.position.y=-1.22-.14*recovery;rig.head.rotation.x+=.16*recovery;rig.legs.forEach(l=>{l.knee.rotation.x+=.16*recovery;});}
-    if(state.cause==='waterLow'){rig.actor.rotation.x=.16*fall;rig.head.rotation.x+=.22*recovery;rig.head.rotation.y+=reduced?0:Math.sin(t*2.6)*.1*recovery;}
-    if(state.cause==='waterHigh'){rig.actor.rotation.x+=(reduced?0:Math.sin(t*7)*.12*recovery);rig.actor.position.x+=(reduced?0:Math.sin(t*7)*.08*recovery);rig.torso.rotation.z+=(reduced?0:Math.sin(t*5)*.09*recovery);}
+    const phaseT=phaseTime/1000,cueEnvelope=smooth(TIMELINE.anticipationEnd,TIMELINE.anticipationEnd+2400,phaseTime)*(1-smooth(TIMELINE.fallStart,TIMELINE.fallStart+1200,phaseTime));
+    expression(rig,stress*cueEnvelope,cueEnvelope>.18?state.cause:'mixed',phaseTime/1000,stress);
+    const recovery=react*(1-smooth(TIMELINE.fallStart,TIMELINE.fallStart+1200,phaseTime));
+    if(state.cause==='energy'){rig.torso.rotation.x+=.1*recovery;rig.head.rotation.x+=.16*recovery;rig.legs.forEach(l=>{l.knee.rotation.x+=.16*recovery;});}
+    if(state.cause==='waterLow'){rig.actor.rotation.x=.16*fall;rig.head.rotation.x+=.22*recovery;rig.head.rotation.y+=reduced?0:Math.sin(phaseTime/1000*2.6)*.1*recovery;}
+    if(state.cause==='waterHigh'){rig.torso.rotation.z+=(reduced?0:Math.sin(phaseTime/1000*5)*.045*recovery);}
     if(state.cause==='salt'){rig.actor.rotation.x-=.11*fall;rig.head.rotation.x-=.12*recovery;rig.arms.forEach(a=>{a.elbow.rotation.z*=.55;});}
-    if(state.cause==='gut'){rig.torso.rotation.x=.12*recovery;rig.legs.forEach(l=>{l.knee.rotation.x+=.22*recovery;});}
+    if(state.cause==='gut'||state.cause==='mixed'){rig.torso.rotation.x=.12*recovery+.25*fall;rig.legs.forEach(l=>{l.knee.rotation.x+=.22*recovery;});}
     if(state.cause==='iron'){rig.actor.position.x+=stagger;rig.actor.rotation.x+=stagger*.7;}
-    if(phaseTime>=TIMELINE.anticipationEnd&&phaseTime<TIMELINE.reactionEnd){
-      if(state.cause==='waterLow'){rig.head.rotation.x=.28;rig.arms[0].sh.rotation.x=-.55;rig.arms[0].elbow.rotation.z=-.65;}
-      if(state.cause==='gut'){rig.torso.rotation.x=.18;const hand=rig.arms[0];hand.sh.rotation.set(-.28,0,.46);hand.elbow.rotation.z=.62;}
-      if(state.cause==='energy'){rig.head.rotation.x=.24;rig.arms.forEach(x=>x.sh.rotation.x=.34);rig.legs.forEach(x=>x.knee.rotation.x=.42);}
-      if(state.cause==='iron'){rig.head.rotation.z+=.18;rig.arms[0].sh.rotation.x=.2;rig.legs[1].hip.rotation.z+=.22;rig.legs[1].knee.rotation.x=.7;rig.actor.position.x+=.04;}
-      if(state.cause==='waterHigh'){rig.arms.forEach((x,i)=>{x.sh.rotation.z+=(i?1:-1)*.5;x.sh.rotation.x=.2;});rig.actor.rotation.z=Math.sin(t*9)*.12;rig.cheeks.forEach((cheek,i)=>cheek.scale.copy(rig.base.cheekScales[i]).multiplyScalar(1+stress*.26));}
-      if(state.cause==='salt'){rig.head.rotation.x=-.24;rig.arms[0].sh.rotation.set(-.2,0,.18);rig.arms[0].elbow.rotation.z=.5;}
+    const reactionWeight=smooth(TIMELINE.anticipationEnd+2000,TIMELINE.anticipationEnd+2400,phaseTime)*(1-smooth(TIMELINE.fallStart,TIMELINE.fallStart+800,phaseTime));
+    if(reactionWeight>.001){
+      const rw=reactionWeight;
+      if(state.cause==='waterLow'){rig.head.rotation.x=mix(rig.head.rotation.x,.28,rw);rig.arms[0].sh.rotation.x=mix(rig.arms[0].sh.rotation.x,-.55,rw);rig.arms[0].elbow.rotation.z=mix(rig.arms[0].elbow.rotation.z,-.65,rw);}
+      if(state.cause==='gut'){rig.torso.rotation.x=mix(rig.torso.rotation.x,.18,rw);const hand=rig.arms[0];hand.sh.rotation.x=mix(hand.sh.rotation.x,-.28,rw);hand.sh.rotation.z=mix(hand.sh.rotation.z,.46,rw);hand.elbow.rotation.z=mix(hand.elbow.rotation.z,.62,rw);}
+      if(state.cause==='energy'){rig.head.rotation.x=mix(rig.head.rotation.x,.24,rw);rig.arms.forEach(x=>x.sh.rotation.x=mix(x.sh.rotation.x,.34,rw));rig.legs.forEach(x=>x.knee.rotation.x=mix(x.knee.rotation.x,.42,rw));}
+      if(state.cause==='iron'){rig.head.rotation.z+=.18*rw;rig.arms[0].sh.rotation.x+=.2*rw;rig.legs[1].hip.rotation.z+=.22*rw;rig.legs[1].knee.rotation.x+=.7*rw;rig.actor.position.x+=.04*rw;}
+      if(state.cause==='waterHigh'){rig.arms.forEach((x,i)=>{x.sh.rotation.z+=(i?1:-1)*.5*rw;x.sh.rotation.x=mix(x.sh.rotation.x,.2,rw);});rig.cheeks.forEach((cheek,i)=>cheek.scale.copy(rig.base.cheekScales[i]).multiplyScalar(1+stress*.26*rw));}
+      if(state.cause==='salt'){rig.head.rotation.x=mix(rig.head.rotation.x,-.24,rw);rig.arms[0].sh.rotation.x=mix(rig.arms[0].sh.rotation.x,-.2,rw);rig.arms[0].sh.rotation.z=mix(rig.arms[0].sh.rotation.z,.18,rw);rig.arms[0].elbow.rotation.z=mix(rig.arms[0].elbow.rotation.z,.5,rw);}
+      if(state.cause==='mixed'){const sag=smooth(TIMELINE.anticipationEnd,TIMELINE.reactionEnd,phaseTime)*rw;rig.torso.rotation.x=mix(rig.torso.rotation.x,.24,rw);rig.head.rotation.x=mix(rig.head.rotation.x,.26,rw);rig.arms[0].sh.rotation.x=mix(rig.arms[0].sh.rotation.x,-.12,rw);rig.arms[0].sh.rotation.z=mix(rig.arms[0].sh.rotation.z,.48,rw);rig.arms[0].elbow.rotation.z=mix(rig.arms[0].elbow.rotation.z,.5,rw);rig.arms[1].sh.rotation.z=mix(rig.arms[1].sh.rotation.z,-.28,rw);rig.legs.forEach(l=>{l.knee.rotation.z-=.18*sag;l.hip.rotation.z-=.06*sag;});}
     }
     // Independent nutrient signals layer over the selected cause in reaction and fall.
-    const layerWindow=clamp(smooth(TIMELINE.anticipationEnd-100,TIMELINE.anticipationEnd+300,phaseTime)*(1-smooth(TIMELINE.fallEnd-300,TIMELINE.fallEnd+200,phaseTime))*.85);
+    const layerWindow=clamp(smooth(TIMELINE.anticipationEnd+2000,TIMELINE.anticipationEnd+2400,phaseTime)*(1-smooth(TIMELINE.fallEnd-300,TIMELINE.fallEnd+200,phaseTime))*.85);
     for(const effect of effects){const q=effect.strength*layerWindow;if(q<.025)continue;const low=effect.direction==='low';
       if(effect.nutrient==='energia'){rig.body.position.y-=q*.11;rig.head.rotation.x+=q*.17;rig.legs.forEach(l=>{l.knee.rotation.x+=q*.22;l.hip.rotation.z+=l.side*q*.1;});}
       if(effect.nutrient==='proteina'){rig.arms.forEach(a=>{a.sh.rotation.x+=q*.2;a.elbow.rotation.z-=a.side*q*.15;});rig.body.rotation.z+=q*.04;}
-      if(effect.nutrient==='agua'&&low){rig.head.rotation.x+=q*.15;rig.head.rotation.y+=(reduced?0:Math.sin(t*2.7))*q*.12;rig.tongue.visible=true;rig.mouth.visible=true;rig.mouth.scale.set(.06,.06,.02);}
-      if(effect.nutrient==='agua'&&!low){const puff=1+q*.13;rig.torso.scale.z*=puff;rig.shirtFront.scale.z*=puff;rig.shirtFront.position.z=rig.torso.scale.z-.02;rig.cheeks.forEach(c=>c.scale.multiplyScalar(1+q*.08));rig.actor.rotation.z+=(reduced?0:Math.sin(t*7))*q*.12;}
+      if(effect.nutrient==='agua'&&low){rig.head.rotation.x+=q*.15;rig.head.rotation.y+=(reduced?0:Math.sin(phaseT*2.7))*q*.12;rig.tongue.visible=true;rig.mouth.visible=true;rig.mouth.scale.set(.06,.06,.02);}
+      if(effect.nutrient==='agua'&&!low){rig.cheeks.forEach(c=>c.scale.multiplyScalar(1+q*.08));}
       if(effect.nutrient==='fibra'){rig.body.rotation.z+=q*(low?.12:.1);rig.arms[0].sh.rotation.x-=q*.32;rig.arms[0].elbow.rotation.z+=q*.36;}
       if(effect.nutrient==='hierro'){rig.head.rotation.x+=q*.1;rig.legs.forEach((l,i)=>{l.knee.rotation.x+=q*(i===0?.42:.16);l.hip.rotation.z+=l.side*q*.12;});}
       if(effect.nutrient==='vitC'){rig.head.rotation.x+=q*.08;rig.mouth.visible=true;rig.mouth.scale.set(.04+q*.05,.025+q*.045,.018);rig.arms[0].sh.rotation.x-=q*.14;}
-      if(effect.nutrient==='calcio'&&!reduced){rig.legs.forEach((l,i)=>{l.knee.rotation.z+=Math.sin(t*17+i*Math.PI)*q*.11;l.knee.rotation.x+=q*.08;});rig.arms.forEach((a,i)=>a.elbow.rotation.z+=Math.sin(t*19+i*Math.PI)*q*.08);}
+      if(effect.nutrient==='calcio'&&!reduced){rig.legs.forEach((l,i)=>{l.knee.rotation.z+=Math.sin(phaseT*17+i*Math.PI)*q*.11;l.knee.rotation.x+=q*.08;});rig.arms.forEach((a,i)=>a.elbow.rotation.z+=Math.sin(phaseT*19+i*Math.PI)*q*.08);}
       if(effect.nutrient==='calcio'&&reduced){rig.legs.forEach(l=>l.knee.rotation.x+=q*.08);}
-      if(effect.nutrient==='sodio'&&low&&!reduced){rig.arms.forEach((a,i)=>{a.sh.rotation.x+=Math.sin(t*16+i*Math.PI)*q*.18;a.elbow.rotation.z+=Math.sin(t*21+i*Math.PI)*q*.12;});rig.actor.rotation.z+=Math.sin(t*16)*q*.035;}
+      if(effect.nutrient==='sodio'&&low&&!reduced){rig.arms.forEach((a,i)=>{a.sh.rotation.x+=Math.sin(phaseT*16+i*Math.PI)*q*.18;a.elbow.rotation.z+=Math.sin(phaseT*21+i*Math.PI)*q*.12;});}
       if(effect.nutrient==='sodio'&&low&&reduced){rig.arms.forEach(a=>a.sh.rotation.x+=q*.08);}
       if(effect.nutrient==='sodio'&&!low){rig.arms[0].sh.rotation.x-=q*.3;rig.arms[0].elbow.rotation.z-=q*.3;rig.head.rotation.x+=q*.12;}
     }
     rig.shadow.visible=true;rig.shadow.material.opacity=.18;rig.shadow.scale.set(.95+fall*.7,.37,1);
-    // Spoon remains pinched in the right hand, angled upward for the absurd final beat.
-    rig.spoon.position.copy(rig.base.spoonPos);if(phaseTime>=TIMELINE.anticipationEnd)rig.spoon.rotation.set(0,0,phaseTime>TIMELINE.fallStart+2500?-.42:mix(0,-.24,fall));
-    rig.tongue.visible=state.cause==='waterLow'&&phaseTime>=TIMELINE.anticipationEnd&&phaseTime<TIMELINE.reactionEnd;rig.smile.visible=phaseTime<TIMELINE.anticipationEnd;rig.mouth.visible=phaseTime>=TIMELINE.anticipationEnd;rig.mouth.scale.set(phaseTime<TIMELINE.anticipationEnd?.025:.075,phaseTime<TIMELINE.anticipationEnd?.012:.085,.018);rig.smile.rotation.z=phaseTime<TIMELINE.anticipationEnd?.12:0;
+    // The spoon wrist is oriented by the contact IK until withdrawal finishes.
+    rig.spoon.position.copy(rig.base.spoonPos);
+    rig.tongue.visible=state.cause==='waterLow'&&phaseTime>=TIMELINE.anticipationEnd+2000&&phaseTime<TIMELINE.reactionEnd;const approachMouth=smooth(.58,.82,anticipation);rig.mouth.visible=phaseTime>=TIMELINE.anticipationEnd||approachMouth>.02;rig.mouth.scale.set(phaseTime<TIMELINE.anticipationEnd?mix(.025,.06,approachMouth):.075,phaseTime<TIMELINE.anticipationEnd?mix(.012,.055,approachMouth):.085,.018);rig.smile.visible=phaseTime<TIMELINE.anticipationEnd&&approachMouth<.35;rig.smile.rotation.z=phaseTime<TIMELINE.anticipationEnd?.12*(1-approachMouth):0;
     if(phaseTime<TIMELINE.anticipationEnd){rig.head.rotation.z=-.08*anticipation;rig['irisR'].position.y=.12+anticipation*.04;rig['irisR'].position.x=.13+anticipation*.025;rig['browR'].rotation.z=-.18*anticipation;}
+    else if(phaseTime<TIMELINE.anticipationEnd+2000){const feedFace=spoonGripAmount,reactionFace=smooth(TIMELINE.anticipationEnd,TIMELINE.anticipationEnd+2000,phaseTime);rig.head.rotation.z=-.08*feedFace;rig['irisR'].position.y=.12+feedFace*.04;rig['irisR'].position.x=.13+feedFace*.025;rig['browR'].rotation.z=mix(-.18*feedFace,-.32,reactionFace);rig['browL'].rotation.z=mix(0,.32,reactionFace);rig['lidL'].scale.y=mix(.018,.004,reactionFace);rig['lidR'].scale.y=mix(.018,.004,reactionFace);rig.mouth.scale.set(mix(.06,.085,reactionFace),mix(.055,.08,reactionFace),.018);}
     else if(phaseTime<TIMELINE.reactionEnd){for(const id of ['L','R']){rig['lid'+id].scale.y=.004;rig['brow'+id].rotation.z=id==='L'?.32:-.32;}rig.mouth.scale.set(.085,.08,.018);}
     else if(phaseTime<TIMELINE.fallEnd){for(const id of ['L','R']){rig['lid'+id].scale.y=.003;rig['brow'+id].rotation.z=id==='L'?.48:-.48;}rig.mouth.scale.set(.085,.095,.018);}
     else if(state.dead&&phaseTime>=TIMELINE.impactEnd){for(const id of ['L','R']){rig['deadCross'+id].visible=true;rig['iris'+id].visible=false;rig['brow'+id].rotation.z=id==='L'?-.4:.4;}rig.mouth.scale.set(.055,.07,.018);}
     else {const squash=impact*.18;rig.torso.scale.y*=1-squash;rig.headShape.scale.y=rig.base.headShapeScale.y*(1-squash*.24);}
-    if(state.cause==='waterHigh'&&phaseTime>=TIMELINE.anticipationEnd&&phaseTime<TIMELINE.fallStart){rig.cheeks.forEach((cheek,i)=>cheek.scale.copy(rig.base.cheekScales[i]).multiplyScalar(1+stress*.26));rig.mouth.scale.set(.045,.025,.018);}
-    if(state.cause==='salt'&&phaseTime>=TIMELINE.anticipationEnd&&phaseTime<TIMELINE.fallStart)rig.mouth.scale.set(.04,.025,.018);
+    if(state.cause==='waterHigh'&&phaseTime>=TIMELINE.anticipationEnd+2000&&phaseTime<TIMELINE.fallStart){rig.cheeks.forEach((cheek,i)=>cheek.scale.copy(rig.base.cheekScales[i]).multiplyScalar(1+stress*.26));rig.mouth.scale.set(.045,.025,.018);}
+    if(state.cause==='salt'&&phaseTime>=TIMELINE.anticipationEnd+2000&&phaseTime<TIMELINE.fallStart)rig.mouth.scale.set(.04,.025,.018);
     if(layerWindow>0){
       const waterLow=effects.find(e=>e.nutrient==='agua'&&e.direction==='low'),vitC=effects.find(e=>e.nutrient==='vitC'&&e.direction==='low');
       if(waterLow&&waterLow.strength*layerWindow>.12&&!state.dead){rig.tongue.visible=true;rig.mouth.visible=true;rig.mouth.scale.set(.06,.055,.02);}
       if(vitC&&vitC.strength*layerWindow>.12&&!state.dead){rig.mouth.visible=true;rig.mouth.scale.set(.04,.035,.018);rig['browL'].rotation.z-=.08;}
       const calcium=effects.find(e=>e.nutrient==='calcio'),protein=effects.find(e=>e.nutrient==='proteina');
-      if(calcium&&calcium.strength*layerWindow>.12){rig['browL'].rotation.z+=Math.sin(t*18)*.04;rig['browR'].rotation.z-=Math.sin(t*18)*.04;}
+      if(calcium&&calcium.strength*layerWindow>.12){rig['browL'].rotation.z+=Math.sin(phaseT*18)*.04;rig['browR'].rotation.z-=Math.sin(phaseT*18)*.04;}
       if(protein&&protein.direction==='low'&&protein.strength*layerWindow>.12){rig['browL'].rotation.z+=.1;rig['browR'].rotation.z-=.1;}
     }
     // Cause-specific terminal silhouettes remain legible after the common floor roll.
@@ -416,27 +416,34 @@ export function createCharacterStage(container,{onEvent=()=>{},onReady=()=>{},on
         blendRotation(rig.head,'z',0);rig.mouth.visible=true;rig.mouth.scale.set(.034,.016,.018);
         rig.legs.forEach(l=>{blendRotation(l.hip,'z',l.side*.025);blendRotation(l.knee,'x',.06);blendRotation(l.knee,'z',0);blendRotation(l.foot,'z',l.side*.04);});
       }else if(state.cause==='gut'){
-        rig.legs.forEach(l=>{blendRotation(l.hip,'z',.72);blendRotation(l.knee,'z',.66);blendRotation(l.knee,'x',.2);});
-        leftArm.sh.rotation.z=mix(leftArm.sh.rotation.z,1.15,terminal);leftArm.elbow.rotation.z=mix(leftArm.elbow.rotation.z,1.05,terminal);
+        rig.legs.forEach(l=>{blendRotation(l.hip,'z',-.16);blendRotation(l.knee,'z',-.60);blendRotation(l.knee,'x',.2);});
+        leftArm.sh.rotation.z=mix(leftArm.sh.rotation.z,.22,terminal);leftArm.elbow.rotation.z=mix(leftArm.elbow.rotation.z,-.12,terminal);
       }else if(state.cause==='iron'){
-        rig.legs.forEach((l,i)=>{blendRotation(l.hip,'z',i===1?.68:l.side*.025);blendRotation(l.knee,'z',i===1?.62:0);blendRotation(l.knee,'x',i===1?.42:.06);});
+        rig.legs.forEach((l,i)=>{blendRotation(l.hip,'z',i===1?-.18:l.side*.025);blendRotation(l.knee,'z',i===1?-.68:-.22);blendRotation(l.knee,'x',i===1?.42:.06);});
       }else if(state.cause==='mixed'){
-        rig.legs.forEach(l=>{blendRotation(l.hip,'z',.72);blendRotation(l.knee,'z',.66);blendRotation(l.knee,'x',.2);});
-        leftArm.sh.rotation.z=mix(leftArm.sh.rotation.z,1.15,terminal);leftArm.elbow.rotation.z=mix(leftArm.elbow.rotation.z,1.05,terminal);
+        rig.legs.forEach(l=>{blendRotation(l.hip,'z',-.16);blendRotation(l.knee,'z',-.60);blendRotation(l.knee,'x',.2);});
+        leftArm.sh.rotation.z=mix(leftArm.sh.rotation.z,.22,terminal);leftArm.elbow.rotation.z=mix(leftArm.elbow.rotation.z,-.12,terminal);
         if(terminal>.15){rig.tongue.visible=true;rig.tongue.scale.set(.11,.055,.025);rig.mouth.visible=true;rig.mouth.scale.set(.06,.055,.02);}
       }
+      // Preserve each cause's brace and support leg arrangement through the
+      // settle; the shared folded pose erased the iron and belly tells.
+      const rightArm=rig.arms[1];leftArm.sh.rotation.z=mix(leftArm.sh.rotation.z,.22,terminal);leftArm.elbow.rotation.z=mix(leftArm.elbow.rotation.z,-.12,terminal);rightArm.sh.rotation.z=mix(rightArm.sh.rotation.z,-.14,terminal);rightArm.elbow.rotation.z=mix(rightArm.elbow.rotation.z,.75,terminal);
+      rig.head.position.x=mix(rig.base.headPos.x,-.20*clamp((state.massKg-70)/90),terminal);
       const fiberEffect=effects.find(e=>e.nutrient==='fibra');
       if(fiberEffect){rig.legs.forEach(l=>{l.knee.rotation.z=clamp(l.knee.rotation.z+fiberEffect.strength*terminal*.22,-1.2,1.45);});}
       const lowWaterEffect=effects.find(e=>e.nutrient==='agua'&&e.direction==='low');
       if(lowWaterEffect&&terminal>.15){rig.tongue.visible=true;rig.tongue.scale.set(.11,.055,.025);rig.mouth.visible=true;rig.mouth.scale.set(.06,.055,.02);}
     }
-    const bellyEffect=effects.find(e=>e.nutrient==='fibra'&&e.strength>.12),bellyGesture=state.cause==='gut'||!!bellyEffect,feedActive=phaseTime<TIMELINE.anticipationEnd;rig.arms.forEach(arm=>{if(feedActive&&arm.id==='R')return;if(arm.id==='L'&&bellyGesture)guardArmAgainstTorso(rig,arm,true,'belly');else if(arm.id==='L'&&state.cause==='salt'&&phaseTime<TIMELINE.fallStart)guardArmAgainstTorso(rig,arm,false,'throat');else guardArmAgainstTorso(rig,arm,false);});
+    blendEntryPose(rig,phaseTime);
+    const bellyEffect=effects.find(e=>e.nutrient==='fibra'&&e.strength>.12),bellyGesture=state.cause==='gut'||state.cause==='mixed'||!!bellyEffect,rightGuardFade=smooth(TIMELINE.anticipationEnd+2000,TIMELINE.anticipationEnd+2400,phaseTime);rig.arms.forEach(arm=>{if(arm.id==='R'){if(phaseTime>=TIMELINE.anticipationEnd+2000)guardArmAgainstTorso(rig,arm,false,null,rightGuardFade);return;}if(arm.id==='L'&&bellyGesture)guardArmAgainstTorso(rig,arm,true,'belly',1);else if(arm.id==='L'&&(state.cause==='salt'||state.cause==='waterLow'))guardArmAgainstTorso(rig,arm,false,'throat',1);else guardArmAgainstTorso(rig,arm,false,null,1);});
+    if(spoonGripAmount>.001)gripSpoonAtMouth(rig,spoonGripAmount);
+    else{const withdrawalSettled=smooth(TIMELINE.anticipationEnd+2000,TIMELINE.anticipationEnd+2400,phaseTime),terminalWrist=smooth(TIMELINE.fallStart+2500,TIMELINE.fallStart+3000,phaseTime);rig.arms[1].hand.rotation.z=mix(-.24*withdrawalSettled,-.42,terminalWrist);}
     // Impact stars have a short orbit, while the ghost rises and makes two futile reaches.
-    stars.forEach((s,i)=>{const starStart=TIMELINE.fallStart+2500,progress=clamp((phaseTime-starStart)/1000);s.visible=!reduced&&phaseTime>=starStart&&phaseTime<TIMELINE.fallEnd;s.position.set(Math.cos(i/7*Math.PI*2)*(0.45+progress*.65),.75+Math.sin(i/7*Math.PI*2)*(0.18+progress*.2),.45);s.rotation.z=t*1.5+i;s.scale.setScalar((1-progress)*(.8+(i%3)*.12));});
+    stars.forEach((s,i)=>{const starStart=TIMELINE.fallStart+2500,progress=clamp((phaseTime-starStart)/1000);s.visible=!reduced&&phaseTime>=starStart&&phaseTime<TIMELINE.fallEnd;s.position.set(Math.cos(i/7*Math.PI*2)*(0.45+progress*.65),.75+Math.sin(i/7*Math.PI*2)*(0.18+progress*.2),.45);s.rotation.z=phaseT*1.5+i;s.scale.setScalar((1-progress)*(.8+(i%3)*.12));});
     ghost.visible=state.fatal&&phaseTime>TIMELINE.deadEnd&&phaseTime<TIMELINE.finish;
     const retry1=smooth(TIMELINE.ghostEnd,TIMELINE.ghostEnd+350,phaseTime)*(1-smooth(TIMELINE.retry1End-300,TIMELINE.retry1End,phaseTime));const retry2=smooth(TIMELINE.retry1End,TIMELINE.retry1End+350,phaseTime)*(1-smooth(TIMELINE.retry2End-300,TIMELINE.retry2End,phaseTime));const reach=retry1+retry2;
-    if(reach>0){const tug=Math.sin(t*24)*reach;rig.arms[1].elbow.rotation.z+=tug*.08;rig.spoon.rotation.z+=tug*.15;}
-    ghost.position.set(mix(.25,.5,ghostOut)+(reduced?0:Math.sin(t*2)*.035),mix(.8,1.55,ghostOut)+(reduced?0:Math.sin(t*2.3)*.045),.05);
+    if(reach>0){const tug=Math.sin(phaseT*24)*reach;rig.arms[1].elbow.rotation.z+=tug*.08;rig.arms[1].hand.rotation.z+=tug*.15;}
+    const emergence=rig.body.localToWorld(V(0,1.62,.12));ghost.position.set(emergence.x+(reduced?0:Math.sin(phaseT*2)*.025),emergence.y+ghostOut*.58+(reduced?0:Math.sin(phaseT*2.3)*.025),emergence.z+.08);
     ghost.rotation.z=reduced?0:reach*-.25;ghostArm.quaternion.identity();ghostArm.scale.setScalar(1);ghost.scale.setScalar(1);
     if(reach>0){scene.updateMatrixWorld(true);const bowlTarget=rig.spoon.localToWorld(V(0,.28,.01));const ghostTarget=ghost.worldToLocal(bowlTarget.clone()).sub(ghostArm.position);const distance=ghostTarget.length();const restDirection=V(-.82,-.12,.04).normalize();const targetDirection=ghostTarget.normalize();const reachRotation=new THREE.Quaternion().setFromUnitVectors(restDirection,targetDirection);ghostArm.quaternion.slerp(reachRotation,reach);ghostArm.scale.setScalar(mix(1,clamp(distance/.83,.7,1.25),reach));}
     ghostEyes.forEach((eye,i)=>eye.position.set((i===0?-.105:.105)-reach*.025,.22-reach*.035,.22));
@@ -446,15 +453,25 @@ export function createCharacterStage(container,{onEvent=()=>{},onReady=()=>{},on
   }
   function flushEvents(){while(events.length)onEvent(events.shift());}
   function syncFace(rig){for(const id of ['L','R']){const side=id==='L'?-1:1,iris=rig['iris'+id],pupil=rig['pupil'+id],glint=rig['glint'+id];pupil.position.set(iris.position.x,iris.position.y-.002,.336);glint.position.set(iris.position.x+side*.009,iris.position.y+.019,.345);pupil.visible=glint.visible=!state.dead;}}
-  function animate(now=0){raf=requestAnimationFrame(animate);if(lastNow===null)lastNow=now;const dt=Math.max(0,now-lastNow);lastNow=now;if(!state.paused&&state.comparison!=='before')clock+=dt;updateAnimation(dt);if(state.comparison==='before'){ghost.visible=false;stars.forEach(s=>s.visible=false);sweat.forEach(p=>p.visible=false);}syncFace(active);active.arms.forEach(arm=>measureArmClearance(active,arm));flushEvents();if(renderer)renderer.render(scene,camera);}
+  function animate(now=0){raf=requestAnimationFrame(animate);if(lastNow===null)lastNow=now;const dt=Math.min(100,Math.max(0,now-lastNow));lastNow=now;if(!testSeekLocked&&!state.paused&&state.comparison!=='before')clock+=dt;updateAnimation(dt);if(state.comparison==='before'){ghost.visible=false;stars.forEach(s=>s.visible=false);sweat.forEach(p=>p.visible=false);}syncFace(active);flushEvents();if(renderer)renderer.render(scene,camera);}
+  function seekForTest(elapsedMs,{emitEvents=false}={}){
+    if(!Number.isFinite(Number(elapsedMs)))return getState();testSeekLocked=true;
+    const duration=state.tasting?4300:state.fatal?TIMELINE.finish:TIMELINE.nonfatalFinish;
+    clock=state.started+clamp(Number(elapsedMs),0,duration);updateAnimation(0);syncFace(active);
+    if(state.comparison==='before'){ghost.visible=false;stars.forEach(s=>s.visible=false);sweat.forEach(p=>p.visible=false);}
+    if(emitEvents)flushEvents();else events.length=0;if(renderer)renderer.render(scene,camera);return getState();
+  }
+  function resumeFromTestSeek(){testSeekLocked=false;lastNow=null;}
   function setState(next={}){
-    if(next.profile&&next.profile!==state.profile&&(next.profile==='hombre'||next.profile==='mujer')){active.actor.visible=false;state.profile=next.profile;active=rigs[state.profile];active.actor.visible=true;setGhostProfile(state.profile);}
+    const profileChanged=!!next.profile&&next.profile!==state.profile&&(next.profile==='hombre'||next.profile==='mujer'),massChanged=next.massKg!==undefined&&Number(next.massKg)!==state.massKg;
+    if(profileChanged||massChanged){if(state.playing||state.dead||state.comparison||state.revivePose){state.playing=false;state.tasting=false;state.dead=false;state.fatal=false;state.deadEventSent=false;state.revivePose=null;state.phase='idle';state.progress=0;setComparison(null);resetTransient();events.length=0;}testSeekLocked=false;}
+    if(profileChanged){active.actor.visible=false;state.profile=next.profile;active=rigs[state.profile];active.actor.visible=true;setGhostProfile(state.profile);}
     if(next.levels)state.levels={...state.levels,...next.levels};if(next.activeNutrient!==undefined)state.activeNutrient=Object.hasOwn(state.levels,next.activeNutrient)?next.activeNutrient:null;if(next.intensity!==undefined)state.intensity=clamp(Number(next.intensity)||0);if(next.paused!==undefined){state.paused=!!next.paused;lastNow=null;}if(next.neutral!==undefined){state.neutral=!!next.neutral;if(state.neutral&&(state.dead||state.playing)&&state.fatal)revive();}if(next.massKg!==undefined)state.massKg=clamp(Number(next.massKg)||70,40,160);return getState();
   }
-  function play({fatal=true,cause='mixed'}={}){if(disposed)return;setComparison(null);state.dead=false;state.playing=false;state.phase='idle';resetTransient();updateAnimation(0);captureComparisonAvatar();setGhostProfile(state.profile);const profile=profileStress(),requested=!!fatal;state.fatal=requested&&profile.critical&&!state.neutral;state.tasting=!state.fatal&&(state.neutral||profile.stress<.16);state.critical=profile.critical;state.dominantNutrient=profile.dominantNutrient;state.effects=profile.effects;state.cause=['energy','waterLow','waterHigh','salt','gut','iron','mixed'].includes(cause)?cause:'mixed';state.dead=false;state.playing=true;state.deadEventSent=false;state.started=clock;state.progress=0;state.phase='idle';resetTransient();active.actor.visible=true;}
-  function revive(){if(disposed)return;setComparison(null);state.dead=false;state.fatal=false;state.tasting=false;state.playing=false;state.deadEventSent=false;state.started=clock;state.progress=0;state.phase='revived';active.actor.position.copy(active.base.actorPos);active.actor.rotation.set(0,0,0);active.body.position.copy(active.base.bodyPos);resetTransient();events.push({type:'revived',phase:'idle',caption:'He vuelto. ¿Queda postre?'});}
+  function play({fatal=true,cause='mixed'}={}){if(disposed)return;testSeekLocked=false;setComparison(null);state.dead=false;state.playing=false;state.phase='idle';resetTransient();updateAnimation(0);state.entryPose=captureEntryPose(active);captureComparisonAvatar();setGhostProfile(state.profile);const profile=profileStress(),requested=!!fatal;state.fatal=requested&&profile.critical&&!state.neutral;state.tasting=!state.fatal&&(state.neutral||profile.stress<.16);state.critical=profile.critical;state.dominantNutrient=profile.dominantNutrient;state.effects=profile.effects;state.cause=['energy','waterLow','waterHigh','salt','gut','iron','mixed'].includes(cause)?cause:'mixed';state.dead=false;state.playing=true;state.deadEventSent=false;state.started=clock;state.progress=0;state.phase='idle';resetTransient();active.actor.visible=true;}
+  function revive(){if(disposed)return;testSeekLocked=false;const from={started:clock,actorPosition:active.actor.position.clone(),actorQuaternion:active.actor.quaternion.clone(),bodyPosition:active.body.position.clone(),bodyQuaternion:active.body.quaternion.clone(),arms:active.arms.map(a=>({shoulder:a.sh.quaternion.clone(),elbow:a.elbow.quaternion.clone()})),legs:active.legs.map(l=>({hip:l.hip.quaternion.clone(),knee:l.knee.quaternion.clone()}))};setComparison(null);state.dead=false;state.fatal=false;state.tasting=false;state.playing=false;state.deadEventSent=false;state.started=clock;state.progress=0;state.phase='reviving';state.revivePose=from;active.actor.position.copy(active.base.actorPos);active.actor.rotation.set(0,0,0);active.body.position.copy(active.base.bodyPos);resetTransient();events.push({type:'revived',phase:'reviving',caption:'Un momento. Todavía hay postre.'});}
   function setPaused(value){state.paused=!!value;lastNow=null;}
-  function getState(){const p=profileStress();active.actor.updateMatrixWorld(true);const bowl=active.spoon?.getObjectByName('spoonBowl'),mouth=active.mouth,palm=active.arms.find(a=>a.id==='R')?.palm,bowlPosition=bowl?.getWorldPosition(V()),mouthPosition=mouth?.getWorldPosition(V()),gripPosition=active.spoon?.getWorldPosition(V()),palmPosition=palm?.getWorldPosition(V()),spoonMouthDistance=bowlPosition&&mouthPosition?Number(bowlPosition.distanceTo(mouthPosition).toFixed(3)):null,spoonGripDistance=gripPosition&&palmPosition?Number(gripPosition.distanceTo(palmPosition).toFixed(3)):null;return{profile:state.profile,phase:state.phase,dead:state.dead,progress:state.progress,pose:state.dead?'falling':state.playing?(state.tasting?'tasting':'acting'):'standing',fatal:state.fatal,tasting:state.tasting,critical:p.critical,cause:state.cause,currentCue:state.playing&&!state.tasting?state.cause:p.cue,dominantNutrient:p.dominantNutrient,effects:p.effects,comparison:state.comparison,trajectory:{...TIMELINE,duration:state.tasting?3500:state.fatal?TIMELINE.finish:TIMELINE.nonfatalFinish},timing:{elapsed:state.playing?Math.max(0,clock-state.started):0,duration:state.tasting?3500:state.fatal?TIMELINE.finish:TIMELINE.nonfatalFinish,clock},poseDebug:{actorPosition:active.actor.position.toArray(),bodyRotation:active.body.rotation.toArray(),torsoScale:active.torso.scale.toArray(),requestedMassKg:state.massKg,lastAppliedMorphMass,shoulderAnchors:Object.fromEntries(active.arms.map(a=>[a.id,a.sh.position.toArray()])),spoonMouthDistance,spoonGripDistance,armClearance:active.armClearance||{},bellyTarget:active.bellyTargetDebug||null,comparisonAvatarVisible:!!state.comparisonAvatar?.visible},paused:state.paused,stress:p.stress,massKg:state.massKg};}
+  function getState(){const p=profileStress();active.actor.updateMatrixWorld(true);const bowl=active.spoon?.getObjectByName('spoonBowl'),mouth=active.mouth,palm=active.arms.find(a=>a.id==='R')?.palm,bowlPosition=bowl?.getWorldPosition(V()),mouthPosition=mouth?.getWorldPosition(V()),gripPosition=active.spoon?.getWorldPosition(V()),palmPosition=palm?.getWorldPosition(V()),spoonMouthDistance=bowlPosition&&mouthPosition?Number(bowlPosition.distanceTo(mouthPosition).toFixed(3)):null,spoonGripDistance=gripPosition&&palmPosition?Number(gripPosition.distanceTo(palmPosition).toFixed(3)):null;return{profile:state.profile,phase:state.phase,dead:state.dead,progress:state.progress,pose:state.dead?'falling':state.phase==='reviving'?'reviving':state.playing?(state.tasting?'tasting':'acting'):'standing',fatal:state.fatal,tasting:state.tasting,critical:p.critical,cause:state.cause,currentCue:state.playing&&!state.tasting?state.cause:p.cue,dominantNutrient:p.dominantNutrient,effects:p.effects,comparison:state.comparison,trajectory:{...TIMELINE,duration:state.tasting?4300:state.fatal?TIMELINE.finish:TIMELINE.nonfatalFinish},timing:{elapsed:state.playing?Math.max(0,clock-state.started):0,duration:state.tasting?4300:state.fatal?TIMELINE.finish:TIMELINE.nonfatalFinish,clock},poseDebug:{actorPosition:active.actor.position.toArray(),bodyRotation:active.body.rotation.toArray(),torsoScale:active.torso.scale.toArray(),requestedMassKg:state.massKg,lastAppliedMorphMass,shoulderAnchors:Object.fromEntries(active.arms.map(a=>[a.id,a.sh.position.toArray()])),spoonMouthDistance,spoonGripDistance,armClearance:active.armClearance||{},bellyTarget:active.bellyTargetDebug||null,comparisonAvatarVisible:!!state.comparisonAvatar?.visible},paused:state.paused,stress:p.stress,massKg:state.massKg};}
   function getArmGeometrySnapshot(){
     active.actor.updateMatrixWorld(true);scene.updateMatrixWorld(true);
     const body=active.body,bodyInverse=body.matrixWorld.clone().invert(),localTransform=object=>{const matrix=bodyInverse.clone().multiply(object.matrixWorld),position=V(),quaternion=new THREE.Quaternion(),scale=V();matrix.decompose(position,quaternion,scale);return{matrix:matrix.toArray(),position:position.toArray(),quaternion:quaternion.toArray(),scale:scale.toArray()};},localPoint=(object,point=V())=>body.worldToLocal(object.localToWorld(point.clone())).toArray();
@@ -465,5 +482,5 @@ export function createCharacterStage(container,{onEvent=()=>{},onReady=()=>{},on
   function onVisibility(){lastNow=null;}
   function destroy(){if(disposed)return;disposed=true;cancelAnimationFrame(raf);resizeObs?.disconnect();document.removeEventListener('visibilitychange',onVisibility);materials.forEach(m=>m.dispose());scene?.traverse(o=>{if(o.geometry)o.geometry.dispose();});renderer?.dispose();renderer?.domElement.remove();}
   try{setupScene();document.addEventListener('visibilitychange',onVisibility);raf=requestAnimationFrame(animate);onReady();}catch(error){onError(error);}
-  return{setState,play,revive,setPaused,setComparison,getState,getArmGeometrySnapshot,destroy};
+  return{setState,play,revive,setPaused,setComparison,getState,getArmGeometrySnapshot,seekForTest,resumeFromTestSeek,destroy};
 }
