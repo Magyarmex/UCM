@@ -1,7 +1,7 @@
 
 window.addEventListener('error',e=>{window.__bootError=e.error?.stack||e.message||String(e.error);console.error('Tajín boot error',window.__bootError)});
 window.addEventListener('unhandledrejection',e=>{window.__bootError=e.reason?.stack||String(e.reason);console.error('Tajín boot rejection',window.__bootError)});
-import { createCharacterStage } from './character.js?v=13';
+import { createCharacterStage } from './character.js?v=14';
 import { createAudioController } from './audio.js?v=2';
 
 const NUTRIENTS=[
