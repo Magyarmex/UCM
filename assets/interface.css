@@ -15,3 +15,62 @@
 @media(min-width:701px){.stage-view{top:42px;bottom:116px}}
 @media(min-width:1101px){.food-panel,.nutrient-panel{max-height:clamp(640px,calc(100svh - 182px),820px)}.food-list{max-height:clamp(185px,calc(100svh - 635px),400px)}.nutrient-list{gap:3px}.nutrient-row{padding:3px 0 4px}.nutrient-sub input{height:18px}.amount-input{padding:4px}.effect-copy{font-size:11px;line-height:1.5}.food-instruction{font-size:11px}.panel-heading h2{font-size:18px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+
+/* The document scrolls as one surface; panels never trap a second scroll area. */
+@media (min-width: 1101px) {
+  .food-panel, .nutrient-panel { position: static; max-height: none; overflow: visible; }
+  .food-list { max-height: none; overflow: visible; }
+  .stage-panel { height: clamp(640px, calc(100svh - 32px), 820px); }
+}
+@media (max-height: 700px) {
+  .stage-panel { position: relative; top: auto; }
+}
+/* A narrow stage has a dedicated area for causes, captions and actions. Its
+   height follows the content, so long labels and larger text remain reachable. */
+.stage-panel:has(.stage-cause-layer.is-compact) {
+  position: relative; top: auto; height: auto; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.stage-panel:has(.stage-cause-layer.is-compact) .stage-top {
+  flex-wrap: wrap; padding: 12px; gap: 8px;
+}
+.stage-panel:has(.stage-cause-layer.is-compact) .stage-view {
+  position: relative; inset: auto; width: 100%; height: clamp(300px, 82vw, 440px); flex: none;
+}
+.stage-panel:has(.stage-cause-layer.is-compact) .stage-shade { display: none; }
+.stage-cause-layer.is-compact {
+  position: relative; inset: auto; display: flex; flex-direction: column;
+  gap: 6px; padding: 0 14px; pointer-events: none;
+}
+.stage-cause-layer.is-compact .scene-cause-tag,
+.stage-cause-layer.is-compact .scene-stability-note {
+  position: static; width: auto; max-width: 100%; display: block;
+  font-size: 11px; padding: 8px 10px; box-shadow: none;
+}
+.stage-cause-layer.is-compact .scene-stability-note { align-self: stretch; }
+.stage-cause-layer.is-compact .scene-tag-body { display: inline; margin-left: 5px; }
+.stage-cause-layer.is-compact .scene-cause-nav { display: flex; flex-wrap: wrap; gap: 5px; pointer-events: auto; }
+.stage-cause-layer.is-compact .scene-cause-tab {
+  flex: 1 1 90px; min-width: 0; min-height: 40px; padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: 8px; background: #fffaf4;
+  font-size: 11px; color: #596b63;
+}
+.stage-cause-layer.is-compact .scene-cause-tab[aria-pressed=true] {
+  background: #f7dfc9; border-color: #c28b66; color: #7f432d;
+}
+.stage-panel:has(.stage-cause-layer.is-compact) .stage-caption {
+  position: relative; inset: auto; padding: 14px 16px 0; gap: 10px;
+}
+.stage-panel:has(.stage-cause-layer.is-compact) .caption-main { min-height: 0; }
+.stage-panel:has(.stage-cause-layer.is-compact) .routine-progress {
+  position: relative; inset: auto; margin: 16px 16px 17px;
+}
+@media (max-width: 700px) {
+  /* JS selects one cause only when compact navigation is available. */
+  .scene-cause-tag[data-priority=secondary] { display: block; }
+}
+/* Keep all portions reachable with the page's normal scroll, including short landscape screens. */
+.food-list { max-height: none; overflow: visible; }
+@media (max-width: 700px) {
+  html { scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+}

@@ -34,7 +34,6 @@ const PRESETS=[
  {id:'salado',label:'Sodio alto',items:['sopa','sopa','agua','agua','agua','agua']},
  {id:'pocaenergia',label:'Poca energía',items:['naranja','brocoli','agua','agua','agua','agua']}
 ];
-const compactSceneMedia=matchMedia('(max-width:700px) and (max-height:700px), (orientation:landscape) and (max-width:900px) and (max-height:600px)');
 const state={selected:PRESETS[0].items.slice(),manual:false,manualValues:null,profile:'hombre',horizon:'patron',patternDays:30,projectedMassKg:70,comparison:null,captionTrail:[],ignoreRevivedPresentation:false,routine:false,focusedNutrient:null,activeNutrient:null,sceneCauseCue:null,absurd:false,levels:{},cause:null,dead:false,playing:false,neutral:false,caption:'Leo espera turno con una cuchara.',massKg:70,massEdited:false,paused:matchMedia('(prefers-reduced-motion: reduce)').matches,ready:false};
 const $=s=>document.querySelector(s);const $$=s=>[...document.querySelectorAll(s)];let stage;
 let audio;
@@ -163,7 +162,7 @@ function renderStageCauses(engineState){
    else note.innerHTML=`${state.horizon==='hoy'&&!state.absurd?'Hoy: suma del registro. El cuerpo sigue estable.':'Postura estable · sin gesto específico'}<small>${state.horizon==='patron'?'Este patrón no activa un gesto visible.':'El gesto de escena no es un síntoma.'}</small>`;
    root.append(note);return;
  }
-  const compactViewport=compactSceneMedia.matches;
+  const compactViewport=root.classList.contains('is-compact');
  const visibleGroups=moment.kind==='gesture'?groups:groups.slice(0,1);
  let displayedGroups=visibleGroups;
  if(compactViewport&&visibleGroups.length>1){
@@ -309,7 +308,26 @@ function tryFewPortions(){state.horizon='patron';$('#todayBtn').setAttribute('ar
 function onStageEvent(e){audio.handleStageEvent(e,stage?.getState?.(),state.cause);if(e.type==='revived'&&state.ignoreRevivedPresentation){state.ignoreRevivedPresentation=false;clearTimeout(window.__tajinIgnoreRevivedTimer);syncStage();return}if(e.type==='phase'){if(e.caption)state.caption=e.caption;if(e.caption)rememberCaption(e.caption);if(e.phase==='idle'){state.playing=false;state.dead=false}const display=stageDisplay();$('#captionLine').textContent=display.caption;$('#captionKicker').textContent=display.kicker;renderStageCauses(stage?.getState?.());if(e.phase==='idle')syncStage()}if(e.type==='dead'){state.dead=true;state.playing=false;state.comparison='after';stage.setComparison?.('after');state.caption=e.caption||'Fin de la función. La cuchara sigue en servicio.';rememberCaption(state.caption);syncStage()}if(e.type==='revived'){state.dead=false;state.playing=false;state.comparison=null;stage.setComparison?.(null);state.caption=e.caption||(state.horizon==='patron'?'De vuelta; el patrón sigue igual.':state.absurd?'De vuelta; la escena sigue igual.':'De vuelta; la cuchara sigue en servicio.');rememberCaption(state.caption);syncStage()}}
 try{stage=createCharacterStage(stageHost,{onEvent:onStageEvent,onReady:()=>{state.ready=true;window.appReady=true},onError:e=>{window.__stageError=e?.stack||String(e);console.error('Tajín stage error',window.__stageError);$('#stageError').style.display='block';window.appReady=true}})}catch(e){window.__stageError=e?.stack||String(e);console.error('Tajín stage creation error',window.__stageError);throw e}
 $$('[data-absurd]').forEach(b=>b.addEventListener('click',()=>chooseAbsurd(b.dataset.absurd)));$('#restoreBtn').addEventListener('click',restore);$('#routineBtn').addEventListener('click',()=>state.dead?playEnding():state.playing?(beginEdit(),render(false)):isCriticalScene()?playEnding():playReaction());$('#neutralBtn').addEventListener('click',()=>{if(state.dead){state.comparison=state.comparison==='before'?'after':'before';stage.setComparison?.(state.comparison);syncStage();return}if(!state.neutral&&state.playing){clearTimeout(window.__tajinExtremeTimer);reviveForTransition();state.dead=false;state.playing=false}state.neutral=!state.neutral;syncStage()});$('#massSlider').addEventListener('input',e=>{const nextMass=Number(e.target.value),changed=nextMass!==state.massKg,cancelled=changed&&cancelOutcomeForMorph();state.massKg=nextMass;state.massEdited=true;$('#massValue').textContent=state.massKg;if(cancelled)state.caption='La escena vuelve al inicio.';syncStage()});$('#patternDays').addEventListener('input',e=>{beginEdit();state.patternDays=Number(e.target.value);$('#patternDaysValue').textContent=state.patternDays;syncStage()});
-compactSceneMedia.addEventListener('change',()=>renderStageCauses(stage?.getState?.()));
+// The scene can be narrow even on a wide viewport, so use its actual width.
+const causeLayer=$('#stageCauses'),scenePanel=$('#stagePanel');
+const compactSceneMedia=matchMedia('(max-width:700px)');
+function syncCompactScene(){
+ const compact=compactSceneMedia.matches||scenePanel.getBoundingClientRect().width<560;
+ if(causeLayer.classList.contains('is-compact')===compact)return;
+ const focused=causeLayer.contains(document.activeElement)?document.activeElement:null;
+ const cue=focused?.dataset.cue||(focused?.dataset.nutrient&&cueForNutrient(focused.dataset.nutrient,state.levels));
+ const nutrient=focused?.dataset.nutrient;
+ causeLayer.classList.toggle('is-compact',compact);
+ renderStageCauses(stage?.getState?.());
+ if(focused){
+  const replacement=[...causeLayer.querySelectorAll('.scene-cause-tab,.scene-cause-tag')].find(el=>el.dataset.cue===cue||(el.dataset.nutrient&&((nutrient&&el.dataset.nutrient===nutrient)||cueForNutrient(el.dataset.nutrient,state.levels)===cue)));
+  replacement?.focus({preventScroll:true});
+ }
+}
+syncCompactScene();
+compactSceneMedia.addEventListener('change',syncCompactScene);
+if('ResizeObserver' in window)new ResizeObserver(syncCompactScene).observe(scenePanel);
+else window.addEventListener('resize',syncCompactScene);
 $('#fewPortionsBtn').addEventListener('click',tryFewPortions);$('#menuPreset').addEventListener('change',e=>selectMenu(e.target.value));
 $('#soundToggle').addEventListener('click',()=>{audio.toggleFromGesture()});$('#soundVolume').addEventListener('input',e=>audio.setVolume(e.target.value));
 try{
