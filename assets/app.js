@@ -325,9 +325,14 @@ function syncCompactScene(){
  }
 }
 syncCompactScene();
-compactSceneMedia.addEventListener('change',syncCompactScene);
-if('ResizeObserver' in window)new ResizeObserver(syncCompactScene).observe(scenePanel);
-else window.addEventListener('resize',syncCompactScene);
+let compactSceneFrame=0;
+function scheduleCompactScene(){
+ if(compactSceneFrame)return;
+ compactSceneFrame=requestAnimationFrame(()=>{compactSceneFrame=0;syncCompactScene()});
+}
+compactSceneMedia.addEventListener('change',scheduleCompactScene);
+if('ResizeObserver' in window)new ResizeObserver(scheduleCompactScene).observe(scenePanel);
+else window.addEventListener('resize',scheduleCompactScene);
 $('#fewPortionsBtn').addEventListener('click',tryFewPortions);$('#menuPreset').addEventListener('change',e=>selectMenu(e.target.value));
 $('#soundToggle').addEventListener('click',()=>{audio.toggleFromGesture()});$('#soundVolume').addEventListener('input',e=>audio.setVolume(e.target.value));
 try{
