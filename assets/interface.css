@@ -20,7 +20,7 @@
 @media (min-width: 1101px) {
   .food-panel, .nutrient-panel { position: static; max-height: none; overflow: visible; }
   .food-list { max-height: none; overflow: visible; }
-  .stage-panel { height: clamp(640px, calc(100svh - 32px), 820px); }
+  .stage-panel { height: clamp(520px, calc(100svh - 182px), 820px); }
 }
 @media (max-height: 700px) {
   .stage-panel { position: relative; top: auto; }
